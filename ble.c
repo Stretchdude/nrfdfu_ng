@@ -553,6 +553,23 @@ ble_send_cp (BLE * ble, uint8_t * buf, size_t len)
 }
 
 
+
+int
+ble_send_cp_noresp (BLE * ble, uint8_t * buf, size_t len)
+{
+  printf ("Sending control:\n");
+  hexdump (buf, len);
+
+  if (!bt_gatt_client_write_without_response
+      (ble->gatt, ble->cp_handle, false, buf, len))
+    {
+      printf ("Failed to initiate write procedure\n");
+      return EXIT_FAILURE;
+    }
+  return EXIT_SUCCESS;
+}
+
+
 #if 0
 int
 ble_send_data (BLE * ble, uint8_t * buf, size_t len)

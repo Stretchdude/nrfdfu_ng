@@ -13,6 +13,7 @@ extern void ble_init(void);
 extern BLE *ble_open(const char *bdaddr);
 extern int ble_register_notify(BLE *ble);
 extern int ble_send_cp(BLE *ble, uint8_t *buf, size_t len);
+extern int ble_send_cp_noresp(BLE *ble, uint8_t *buf, size_t len);
 extern int ble_send_data(BLE *ble, uint8_t *buf, size_t len);
 extern int ble_send_data_noresp(BLE *ble, uint8_t *buf, size_t len);
 extern void ble_wait_setup(BLE *ble, uint8_t op);

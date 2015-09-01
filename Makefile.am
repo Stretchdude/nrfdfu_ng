@@ -72,6 +72,6 @@ AM_CFLAGS=-g -Wall
 
 protos:
 	echo > prototypes.h
-	${CPROTO} ${CPPFLAGS}  -e -v ${CSRCS} > prototypes.new
+	${CPROTO} ${AM_CPPFLAGS}  -e -v ${CSRCS} > prototypes.new
 	mv prototypes.new prototypes.h
 
