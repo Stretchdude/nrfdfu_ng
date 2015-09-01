@@ -8,7 +8,7 @@ send_data_quickly (BLE * b, uint8_t * d, size_t sz, int pkts)
   size_t mtu = 16;
   size_t off = 0;
   size_t tx, rx;
-  int sent;
+  int sent=0;
 
   ble_notify_pkts_start (b);
 

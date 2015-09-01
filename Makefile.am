@@ -7,22 +7,10 @@
 #
 #
 #
+AUTOMAKE_OPTIONS = subdir-objects
+
 man1_MANS=nrfdfu.man
-
-INCLUDES= ${BLUEZ_CFLAGS} ${JSON_C_CFLAGS} ${LIBZIP_CFLAGS}
-
-noinst_HEADERS= prototypes.h ${CHDRS} ${BLUEZ_HDRS}
-
 bin_PROGRAMS = nrfdfu
-
-nrfdfu_SOURCES = ${SRCS}
-nrfdfu_LDADD = ${BLUEZ_LIBS} ${JSON_C_LIBS} ${LIBZIP_LIBS}
-
-tidy: ${CSRCS} ${CHDRS}
-	indent -i2 -ts0 ${CSRCS} ${CHDRS}	
-	/bin/rm -f *~
-
-AM_CFLAGS=-g -Wall
 
 
 CSRCS= \
@@ -38,7 +26,7 @@ CHDRS= \
 	ble.h \
 	dfu.h \
 	manifest.h \
-	project.h \
+	project.h 
 
 BLUEZ_SRCS= \
 	bluez/att.c \
@@ -66,6 +54,21 @@ BLUEZ_HDRS= \
 	bluez/timeout.h \
 	bluez/util.h \
 	bluez/uuid.h
+
+
+AM_CPPFLAGS = ${BLUEZ_CFLAGS} ${JSON_C_CFLAGS} ${LIBZIP_CFLAGS}
+
+noinst_HEADERS= prototypes.h ${CHDRS} ${BLUEZ_HDRS}
+
+
+nrfdfu_SOURCES = ${CSRCS} ${BLUEZ_SRCS}
+nrfdfu_LDADD = ${BLUEZ_LIBS} ${JSON_C_LIBS} ${LIBZIP_LIBS}
+
+tidy: ${CSRCS} ${CHDRS}
+	indent -i2 -ts0 ${CSRCS} ${CHDRS}	
+	/bin/rm -f *~
+
+AM_CFLAGS=-g -Wall
 
 protos:
 	echo > prototypes.h
