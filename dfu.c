@@ -228,6 +228,8 @@ dfu (const char *bdaddr, const char *type, const char *version, uint8_t * dat,
       if (ble_send_cp_noresp (b, buf, 1))
         break;
 
+      printf("Success....\n");
+
       ble_close (b);
       return 0;
 
