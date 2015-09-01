@@ -103,10 +103,24 @@ dfu (const char *bdaddr, const char *type, const char *version, uint8_t * dat,
   uint32_t u32;
   uint16_t u16;
 
-  if (strcmp (type, "application"))
+  uint32_t  start_data[3];
+  uint8_t  dfu_type;
+
+  if (!strcmp (type, "application"))
     {
-      fprintf (stderr, "only know how to flash applications\n");
-      exit (EXIT_FAILURE);
+      dfu_type=DFU_UPDATE_APP;  /*bit field */
+      start_data[0]=0;
+      start_data[1]=0;
+      start_data[2]=bin_sz;
+
+    }else if (!strcmp (type, "bootloader")) {
+      dfu_type=DFU_UPDATE_BL;  /*bit field */
+      start_data[0]=0;
+      start_data[1]=bin_sz;
+      start_data[2]=0;
+   } else {
+	fprintf("No idea how to upload %s\n",type);
+	exit(EXIT_FAILURE);
     }
 
   ble_init ();
@@ -124,7 +138,7 @@ dfu (const char *bdaddr, const char *type, const char *version, uint8_t * dat,
         break;
 
       buf[0] = OP_CODE_START_DFU;
-      buf[1] = DFU_UPDATE_APP;  /*bit field */
+      buf[1] = dfu_type;  /*bit field */
 
       ble_wait_setup (b, OP_CODE_START_DFU);
 
@@ -133,11 +147,8 @@ dfu (const char *bdaddr, const char *type, const char *version, uint8_t * dat,
 
       /*4 bytes sd size, 4 bytes bl size, 4 bytes app size */
 
-      memset (buf, 0, 12);
-      u32 = bin_sz;
-      memcpy (&buf[8], &u32, 4);
 
-      if (ble_send_data (b, buf, 12))
+      if (ble_send_data (b, start_data, sizeof(start_data)))
         break;
 
       if (ble_wait_run (b) != BLE_DFU_RESP_VAL_SUCCESS)
