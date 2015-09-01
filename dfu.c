@@ -57,6 +57,7 @@ send_data_quickly (BLE * b, uint8_t * d, size_t sz, int pkts)
 }
 
 
+#if 0
 static int
 send_data_slowly (BLE * b, uint8_t * d, size_t sz)
 {
@@ -91,8 +92,9 @@ send_data_slowly (BLE * b, uint8_t * d, size_t sz)
   return EXIT_SUCCESS;
 
 }
+#endif
 
-void
+int
 dfu (const char *bdaddr, const char *type, const char *version, uint8_t * dat,
      size_t dat_sz, uint8_t * bin, size_t bin_sz)
 {
@@ -213,7 +215,7 @@ dfu (const char *bdaddr, const char *type, const char *version, uint8_t * dat,
         break;
 
       ble_close (b);
-      return;
+      return 0;
 
 
     }
@@ -228,6 +230,6 @@ dfu (const char *bdaddr, const char *type, const char *version, uint8_t * dat,
 
 
   ble_close (b);
-  exit (EXIT_FAILURE);
+  return -1;
 
 }
