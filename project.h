@@ -16,10 +16,12 @@
 //#include <bluetooth/uuid.h>
 
 
+#include "bluez/uuid.h"
+#include "bluez/att.h"
+#include "bluez/queue.h"
+#include "bluez/gatt-db.h"
+
 #include "manifest.h"
 #include "ble.h"
 
 #include "prototypes.h"
-
-
-

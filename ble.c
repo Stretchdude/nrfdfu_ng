@@ -1,9 +1,60 @@
 #include "project.h"
 
+#include "bluez/gatt-client.h"
+#include "bluez/mainloop.h"
+
 static int verbose = 1;
 
 #define ATT_CID 4
 
+static bt_uuid_t fota_uuid,cp_uuid,data_uuid,cccd_uuid;
+
+
+
+
+static void
+att_debug_cb (const char *str, void *user_data)
+{
+  const char *prefix = user_data;
+
+  fprintf (stderr, "%s:%s\n", prefix, str);
+}
+
+static void
+gatt_debug_cb (const char *str, void *user_data)
+{
+  const char *prefix = user_data;
+
+  fprintf (stderr, "%s:%s\n", prefix, str);
+}
+
+static void
+log_service_event (struct gatt_db_attribute *attr, const char *str)
+{
+  char uuid_str[MAX_LEN_UUID_STR];
+  bt_uuid_t uuid;
+  uint16_t start, end;
+
+  gatt_db_attribute_get_service_uuid (attr, &uuid);
+  bt_uuid_to_string (&uuid, uuid_str, sizeof (uuid_str));
+
+  gatt_db_attribute_get_service_handles (attr, &start, &end);
+
+  fprintf (stderr, "%s - UUID: %s start: 0x%04x end: 0x%04x\n", str, uuid_str,
+           start, end);
+}
+
+static void
+service_added_cb (struct gatt_db_attribute *attr, void *user_data)
+{
+  log_service_event (attr, "Service Added");
+}
+
+static void
+service_removed_cb (struct gatt_db_attribute *attr, void *user_data)
+{
+  log_service_event (attr, "Service Removed");
+}
 
 
 static int
@@ -81,23 +132,167 @@ l2cap_le_att_connect (bdaddr_t * src, bdaddr_t * dst, uint8_t dst_type,
 
 
 
-void ble_finish(struct ble *ble)
+void
+ble_close (BLE *ble)
 {
-if (!ble) return;
+  if (!ble)
+    return;
 
-if (ble->att) bt_att_unref(ble->att);
-if (ble->fd>0) close(ble->fd);
 
-free(ble);
+  if (ble->notify_id)
+	bt_gatt_client_unregister_notify(ble->gatt, ble->notify_id);
+
+  if (ble->gatt)
+        bt_gatt_client_unref(ble->gatt);
+
+  if (ble->db) 
+	gatt_db_unref(ble->db);
+
+  if (ble->att)
+    bt_att_unref (ble->att);
+  if (ble->fd > 0)
+    close (ble->fd);
+
+
+  free (ble);
 }
 
 
-struct ble *ble_start (const char *bdaddr)
+static void
+att_disconnect_cb (int err, void *user_data)
 {
-  struct ble *ble;
+  printf ("Device disconnected: %s\n", strerror (err));
 
-  ble=xmalloc(sizeof(*ble));
-  memset(ble,0,sizeof(*ble));
+  mainloop_exit_failure ();
+}
+
+static void print_uuid(const bt_uuid_t *uuid)
+{
+        char uuid_str[MAX_LEN_UUID_STR];
+        bt_uuid_t uuid128;
+
+        bt_uuid_to_uuid128(uuid, &uuid128);
+        bt_uuid_to_string(&uuid128, uuid_str, sizeof(uuid_str));
+
+        printf("%s\n", uuid_str);
+}
+
+
+
+static void scan_desc(struct gatt_db_attribute *attr, void *user_data)
+{
+BLE *ble=user_data;
+uint16_t handle=gatt_db_attribute_get_handle(attr);
+const bt_uuid_t *uuid=gatt_db_attribute_get_type(attr);
+
+        printf("\t\tdesc - handle: 0x%04x, uuid: ",handle);
+        print_uuid(uuid);
+
+	if (!bt_uuid_cmp(uuid,&cccd_uuid))
+		ble->cccd_handle=handle;
+
+}
+
+
+
+static void scan_chrc(struct gatt_db_attribute *attr, void *user_data)
+{
+	BLE *ble=user_data;
+        uint16_t handle, value_handle;
+        uint8_t properties;
+        bt_uuid_t uuid;
+
+        if (!gatt_db_attribute_get_char_data(attr, &handle,
+                                                                &value_handle,
+                                                                &properties,
+                                                                &uuid))
+                return;
+
+        printf("\tchar - start: 0x%04x, value: 0x%04x, props: 0x%02x, uuid: ",
+                                        handle, value_handle, properties);
+
+
+        print_uuid(&uuid);
+
+	if (!bt_uuid_cmp(&uuid,&data_uuid)) 
+		ble->data_handle=value_handle;
+
+	if (!bt_uuid_cmp(&uuid,&cp_uuid))  {
+		ble->cp_handle=value_handle;
+		gatt_db_service_foreach_desc(attr, scan_desc, ble);
+        }
+
+}
+
+
+
+
+static void scan_service(struct gatt_db_attribute *attr, void *user_data)
+{
+        BLE *ble = user_data;
+        uint16_t start, end;
+        bool primary;
+        bt_uuid_t uuid;
+
+        if (!gatt_db_attribute_get_service_data(attr, &start, &end, &primary,
+                                                                        &uuid))
+                return;
+
+        gatt_db_service_foreach_char(attr, scan_chrc, ble);
+
+        printf("\n");
+}
+
+
+static void
+ready_cb (bool success, uint8_t att_ecode, void *user_data)
+{
+  BLE *ble = user_data;
+
+  if (!success)
+    {
+      fprintf (stderr,
+               "GATT discovery procedures failed - error code: 0x%02x\n",
+               att_ecode);
+      mainloop_exit_failure ();
+      return;
+    }
+
+  printf ("GATT discovery procedures complete\n");
+
+
+  gatt_db_foreach_service(ble->db, &fota_uuid, scan_service, ble);
+
+
+  printf("Handles:\n\tdata: 0x%04x\n\tcp  : 0x%04x\n\tcccd: 0x%04x\n",
+	ble->data_handle,ble->cp_handle,ble->cccd_handle);	
+
+  if (ble->cccd_handle && ble->cp_handle && ble->data_handle) {
+  	mainloop_exit_success ();
+	return;
+  }
+ 
+  mainloop_exit_failure();
+}
+
+
+void ble_init(void)
+{
+  bt_string_to_uuid(&fota_uuid, "00001530-1212-efde-1523-785feabcd123");
+  bt_string_to_uuid(&cp_uuid, "00001531-1212-efde-1523-785feabcd123");
+  bt_string_to_uuid(&data_uuid, "00001532-1212-efde-1523-785feabcd123");
+  bt_string_to_uuid(&cccd_uuid, "00002902-0000-1000-8000-00805f9b34fb");
+
+  mainloop_init ();
+}
+
+BLE *
+ble_open (const char *bdaddr)
+{
+  BLE *ble;
+
+  ble = xmalloc (sizeof (*ble));
+  memset (ble, 0, sizeof (*ble));
 
   ble->sec = BT_SECURITY_LOW;
   ble->dst_type = BDADDR_LE_RANDOM;
@@ -106,42 +301,122 @@ struct ble *ble_start (const char *bdaddr)
   if (str2ba (bdaddr, &ble->dst_addr) < 0)
     {
       fprintf (stderr, "Invalid remote address: %s\n", bdaddr);
-      ble_finish(ble);
+      ble_close (ble);
       return NULL;
     }
 
 
-  ble->fd = l2cap_le_att_connect (&ble->src_addr, &ble->dst_addr, ble->dst_type, ble->sec);
+  ble->fd =
+    l2cap_le_att_connect (&ble->src_addr, &ble->dst_addr, ble->dst_type,
+                          ble->sec);
   if (ble->fd < 0)
     {
       perror ("l2cap_le_att_connect");
-      ble_finish(ble);
+      ble_close (ble);
       return NULL;
     }
 
 
-    ble->att = bt_att_new(ble->fd);
+  ble->att = bt_att_new (ble->fd);
 
-        if (!ble->att) {
-                fprintf(stderr, "Failed to initialze ATT transport layer\n");
-		ble_finish(ble);
-                return NULL;
-        }
+  if (!ble->att)
+    {
+      fprintf (stderr, "Failed to initialze ATT transport layer\n");
+      ble_close (ble);
+      return NULL;
+    }
 
-        if (!bt_att_set_close_on_unref(ble->att, true)) {
-                fprintf(stderr, "Failed to set up ATT transport layer\n");
-		ble_finish(ble);
-                return NULL;
-        }
+  if (!bt_att_set_close_on_unref (ble->att, true))
+    {
+      fprintf (stderr, "Failed to set up ATT transport layer\n");
+      ble_close (ble);
+      return NULL;
+    }
 
-        if (!bt_att_register_disconnect(ble->att, att_disconnect_cb, NULL,
-                                                                NULL)) {
-                fprintf(stderr, "Failed to set ATT disconnect handler\n");
-		ble_finish(ble);
-                return NULL;
-        }
+  if (!bt_att_register_disconnect (ble->att, att_disconnect_cb, NULL, NULL))
+    {
+      fprintf (stderr, "Failed to set ATT disconnect handler\n");
+      ble_close (ble);
+      return NULL;
+    }
 
 
+  ble->db = gatt_db_new ();
+  ble->gatt = bt_gatt_client_new (ble->db, ble->att, ble->mtu);
 
-  printf ("Connected!\n");
+
+  gatt_db_register (ble->db, service_added_cb, service_removed_cb,
+                    NULL, NULL);
+
+  if (verbose)
+    {
+      bt_att_set_debug (ble->att, att_debug_cb, "att: ", NULL);
+      bt_gatt_client_set_debug (ble->gatt, gatt_debug_cb, "gatt: ", NULL);
+    }
+
+  bt_gatt_client_set_ready_handler (ble->gatt, ready_cb, ble, NULL);
+
+
+  if (mainloop_run () == EXIT_SUCCESS)
+    return ble;
+
+  ble_close (ble);
+  return NULL;
 }
+
+static void notify_cb(uint16_t value_handle, const uint8_t *value,
+                                        uint16_t length, void *user_data)
+{
+        int i;
+
+        printf("Handle Value Not/Ind: 0x%04x - ", value_handle);
+
+        if (length == 0) {
+                printf("(0 bytes)\n");
+                return;
+        }
+
+        printf("(%u bytes): ", length);
+
+        for (i = 0; i < length; i++)
+                printf("%02x ", value[i]);
+
+        printf("\n");
+}
+
+static void register_notify_cb(uint16_t att_ecode, void *user_data)
+{
+        if (att_ecode) {
+                printf("Failed to register notify handler "
+                                        "- error code: 0x%02x\n", att_ecode);
+		mainloop_exit_failure();
+                return;
+        }
+
+        printf("Registered notify handler!\n");
+	mainloop_exit_success();
+}
+
+
+int ble_register_notify(BLE *ble) {
+
+
+
+        if (!bt_gatt_client_is_ready(ble->gatt)) {
+                printf("GATT client not initialized\n");
+                return EXIT_FAILURE;
+        }
+
+        ble->notify_id = bt_gatt_client_register_notify(ble->gatt, ble->cp_handle,
+                                                        register_notify_cb,
+                                                        notify_cb, NULL, NULL);
+        if (!ble->notify_id) {
+                printf("Failed to register notify handler\n");
+                return EXIT_FAILURE;
+        }
+
+        printf("requesting notify\n");
+
+	return mainloop_run();
+}
+

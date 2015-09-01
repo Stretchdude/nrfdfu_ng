@@ -25,7 +25,6 @@ struct manifest *
 parse_manifest (const char *str)
 {
   json_object *json, *manifest;
-  enum json_type type;
   enum json_tokener_error jerr = json_tokener_success;
   struct manifest *m;
 

@@ -65,10 +65,11 @@ main (int argc, char *argv[])
   bin_size = read_file_from_zip (zip, m->bin_file, &bin);
 
 
-  printf ("%d bytes init_data, %d bytes firmware\n", dat_size, bin_size);
+  printf ("%u bytes init_data, %u bytes firmware\n",(unsigned) dat_size, (unsigned) bin_size);
 
 
   dfu (bdaddr, m->type, m->dfu_version, dat, dat_size, bin, bin_size);
 
 
+return EXIT_SUCCESS;
 }

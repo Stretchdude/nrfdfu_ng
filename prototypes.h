@@ -8,7 +8,10 @@ extern void fatal_zip(struct zip *zip);
 extern struct zip *open_zip(const char *fn);
 extern size_t read_file_from_zip(struct zip *zip, const char *fn, void *_buf);
 /* ble.c */
-extern int bt_thing(const char *bdaddr);
+extern void ble_close(BLE *ble);
+extern void ble_init(void);
+extern BLE *ble_open(const char *bdaddr);
+extern int ble_register_notify(BLE *ble);
 /* manifest.c */
 extern json_object *_json_object_object_get(json_object *obj, const char *name);
 extern struct manifest *parse_manifest(const char *str);

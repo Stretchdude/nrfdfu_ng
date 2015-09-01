@@ -1,0 +1,7 @@
+main
+test.zip
+*.o
+core.*
+*~
+nrfdfu
+.*.swp
