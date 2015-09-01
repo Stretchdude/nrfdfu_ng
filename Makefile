@@ -1,4 +1,4 @@
-CSRCS=nrfdfu.c util.c zip.c ble.c manifest.c dfu.c
+CSRCS=nrfdfu.c util.c zip.c ble.c manifest.c dfu.c hexdump.c
 BLUEZ_SRCS=bluez/att.c bluez/queue.c bluez/crypto.c bluez/util.c bluez/io-mainloop.c bluez/timeout-mainloop.c bluez/mainloop.c bluez/gatt-db.c bluez/uuid.c bluez/gatt-client.c bluez/gatt-helpers.c
 
 PROG=nrfdfu

@@ -30,10 +30,9 @@ enum
   OP_CODE_PKT_RCPT_NOTIF = 17                                                   /**< Value of the Op code field for 'Packets Receipt Notification'.*/
 };
 
-enum {
- DFU_MODE_SOFTDEVICE  = 1, 
- DFU_MODE_BOOTLOADER  = 2,
- DFU_MODE_SD_BL       = 3,
- DFU_MODE_APPLICATION = 4
-};
+#define DFU_UPDATE_SD                   0x01                                                            /**< Bit field indicating update of SoftDevice is ongoing. */
+#define DFU_UPDATE_BL                   0x02                                                            /**< Bit field indicating update of bootloader is ongoing. */
+#define DFU_UPDATE_APP                  0x04                                                            /**< Bit field indicating update of application is ongoing. */
 
+#define DFU_INIT_RX                     0x00                                                            /**< Op Code identifies for receiving init packet. */
+#define DFU_INIT_COMPLETE               0x01                                                            /**< Op Code identifies for transmission complete of init packet. */

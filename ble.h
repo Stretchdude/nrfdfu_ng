@@ -17,6 +17,9 @@ struct ble
   uint16_t cp_handle;
   uint16_t cccd_handle;
   uint16_t data_handle;
+
+  int notify_waiting_for_op;
+  int notify_code;
 };
 
 typedef struct ble BLE;
