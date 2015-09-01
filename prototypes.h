@@ -15,8 +15,12 @@ extern BLE *ble_open (const char *bdaddr);
 extern int ble_register_notify (BLE * ble);
 extern int ble_send_cp (BLE * ble, uint8_t * buf, size_t len);
 extern int ble_send_data (BLE * ble, uint8_t * buf, size_t len);
+extern int ble_send_data_noresp (BLE * ble, uint8_t * buf, size_t len);
 extern void ble_wait_setup (BLE * ble, uint8_t op);
 extern int ble_wait_run (BLE * ble);
+extern void ble_notify_pkts_start (BLE * ble);
+extern void ble_notify_pkts_stop (BLE * ble);
+extern size_t ble_notify_get_pkts (BLE * ble);
 /* manifest.c */
 extern json_object *_json_object_object_get (json_object * obj,
                                              const char *name);

@@ -20,6 +20,11 @@ struct ble
 
   int notify_waiting_for_op;
   int notify_code;
+
+
+  size_t notify_pkts;
+  int notify_waiting_for_pkts;
+
 };
 
 typedef struct ble BLE;

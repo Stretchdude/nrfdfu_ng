@@ -429,6 +429,23 @@ notify_cb (uint16_t value_handle, const uint8_t * value,
   int i;
   BLE *ble = user_data;
 
+
+
+  if ((value_handle == ble->cp_handle) && (length == 5)
+      && (value[0] == OP_CODE_PKT_RCPT_NOTIF))
+    {
+      uint32_t u32;
+      memcpy (&u32, &value[1], 4);
+      ble->notify_pkts = u32;
+      if (ble->notify_waiting_for_pkts)
+        mainloop_quit ();
+      ble->notify_waiting_for_pkts = 0;
+
+      return;
+    }
+
+
+
   printf ("Handle Value Not/Ind: 0x%04x - ", value_handle);
 
   if (length == 0)
@@ -444,21 +461,18 @@ notify_cb (uint16_t value_handle, const uint8_t * value,
 
   printf ("\n");
 
-  if (value_handle != ble->cp_handle)
-    return;
-  if (length != 3)
-    return;
 
-  if (value[0] != OP_CODE_RESPONSE)
-    return;
 
-  if (value[1] != ble->notify_waiting_for_op)
-    return;
+  if ((value_handle == ble->cp_handle) && (length == 3)
+      && (value[0] == OP_CODE_RESPONSE)
+      && (value[1] == ble->notify_waiting_for_op))
+    {
+      ble->notify_code = value[2];
+      printf ("Got response => 0x%02x\n", value[2]);
+      mainloop_quit ();
+    }
 
-  ble->notify_code = value[2];
 
-  printf ("Got response => 0x%02x\n", value[2]);
-  mainloop_quit ();
 
 }
 
@@ -593,32 +607,12 @@ ble_send_data (BLE * ble, uint8_t * buf, size_t len)
 int
 ble_send_data_noresp (BLE * ble, uint8_t * buf, size_t len)
 {
-  size_t mtu = 16, tx;
-
-  printf ("Sending data:\n");
-
-
-  hexdump (buf, (len < 64) ? len : 64);
-
-
-  while (len)
+  if (!bt_gatt_client_write_without_response
+      (ble->gatt, ble->data_handle, false, buf, len))
     {
-
-      printf ("%u bytes left\n", (unsigned) len);
-
-      tx = (len > mtu) ? mtu : len;
-
-      if (!bt_gatt_client_write_without_response
-          (ble->gatt, ble->data_handle, false, buf, tx))
-        {
-          printf ("Failed to initiate write procedure\n");
-          return EXIT_FAILURE;
-        }
-
-      len -= tx;
-      buf += tx;
+      printf ("Failed to initiate write procedure\n");
+      return EXIT_FAILURE;
     }
-
   return EXIT_SUCCESS;
 }
 
@@ -641,4 +635,31 @@ ble_wait_run (BLE * ble)
   printf ("Returning response 0x%02x\n", ble->notify_code);
 
   return ble->notify_code;
+}
+
+void
+ble_notify_pkts_start (BLE * ble)
+{
+  ble->notify_waiting_for_pkts = 1;
+}
+
+
+void
+ble_notify_pkts_stop (BLE * ble)
+{
+  ble->notify_waiting_for_pkts = 0;
+}
+
+size_t
+ble_notify_get_pkts (BLE * ble)
+{
+  size_t ret = 0;
+
+  mainloop_run ();
+
+  if (!ble->notify_waiting_for_pkts)
+    ret = ble->notify_pkts;
+  ble->notify_waiting_for_pkts = 1;
+
+  return ret;
 }
