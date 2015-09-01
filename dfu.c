@@ -238,7 +238,8 @@ dfu (const char *bdaddr, const char *type, const char *version, uint8_t * dat,
   if (b)
     {
       buf[0] = OP_CODE_SYS_RESET;
-      ble_send_cp (b, buf, 1);
+      ble_send_cp_noresp (b, buf, 1);
+      sleep(1);
     }
 
 
