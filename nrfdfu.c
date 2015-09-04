@@ -34,8 +34,6 @@ main (int argc, char *argv[])
   size_t dat_size;
 
 
-  int tries = 3;
-
 
   while ((opt = getopt (argc, argv, "b:p:")) != -1)
     {
@@ -71,7 +69,7 @@ main (int argc, char *argv[])
           (unsigned) bin_size);
 
 
-  while (tries--)
+  while (1)
     {
       if (!dfu
           (bdaddr, m->type, m->dfu_version, dat, dat_size, bin, bin_size))
