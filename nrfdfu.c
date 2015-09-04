@@ -76,6 +76,7 @@ main (int argc, char *argv[])
       if (!dfu
           (bdaddr, m->type, m->dfu_version, dat, dat_size, bin, bin_size))
         return EXIT_SUCCESS;
+	sleep(3);
     }
 
 

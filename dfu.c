@@ -217,6 +217,9 @@ dfu (const char *bdaddr, const char *type, const char *version, uint8_t * dat,
         break;
 #endif
 
+      buf[0] = OP_CODE_IMAGE_SIZE_REQ;
+      ble_send_cp (b, buf, 1);
+
       ble_wait_setup (b, OP_CODE_VALIDATE);
       buf[0] = OP_CODE_VALIDATE;
       if (ble_send_cp (b, buf, 1))
