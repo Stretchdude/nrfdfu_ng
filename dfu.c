@@ -1,135 +1,115 @@
 #include "project.h"
 #include "dfu.h"
 
-static int
-send_data_quickly (BLE * b, uint8_t * d, size_t sz, int pkts)
-{
-  char bs[64];
-  size_t mtu = 16;
-  size_t off = 0;
-  size_t tx, rx;
-  int sent = 0;
 
-  ble_notify_pkts_start (b);
+struct ErrorDescription {
+  int code;
+  const char *description;
+};
 
-  memset (bs, '\b', sizeof (bs));
+struct ErrorDescription errorDescriptions[] = {
+  {0x00, "Invalid code: The provided opcode was missing or malformed."},
+  {0x01, "Success: The operation completed successfully."},
+  {0x02, "Opcode not supported: The provided opcode was invalid."},
+  {0x03, "Invalid parameter: A parameter for the opcode was missing."},
+  {0x04, "Insufficient resources: There was not enough memory for the data object."},
+  {0x05, "Invalid object: The data object did not match the firmware and hardware requirements, the signature was missing, or parsing the command failed."},
+  {0x07, "Unsupported type: The provided object type was not valid for a Create or Read operation."},
+  {0x08, "Operation not permitted: The state of the DFU process did not allow this operation."},
+  {0x0A, "Operation failed: The operation failed."},
+  {-1  , "Unknown code: ???"}
+};
 
-  while (off != sz)
-    {
-      fwrite (bs, 1, sizeof (bs), stdout);
-      printf ("%6u/%6u bytes", (unsigned) off, (unsigned) sz);
-      fflush (stdout);
-
-      tx = (sz - off);
-      if (tx > mtu)
-        tx = mtu;
-
-      if (ble_send_data_noresp (b, d + off, tx))
-        {
-          printf ("\nFailed\n");
-          ble_notify_pkts_stop (b);
-          return EXIT_FAILURE;
-        }
-
-      off += tx;
-      sent++;
-
-      if (sent == pkts)
-        {
-          rx = ble_notify_get_pkts (b);
-
-          if (rx != off)
-            {
-              printf ("\nFailed -Lost a packet\n");
-              ble_notify_pkts_stop (b);
-              return EXIT_FAILURE;
-            }
-          sent = 0;
-        }
-
+void dfuPrintHumanReadableError(int responceCode){
+  struct ErrorDescription *errorDescription = errorDescriptions;
+  while (errorDescription->code != -1){
+    if (errorDescription->code == responceCode){
+      break;
     }
+    errorDescription++;
+  }
+  printf("The operation failed \"%s (code: %d)\"\n", errorDescription->description, responceCode);
+}
 
-  ble_notify_pkts_stop (b);
+int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, BleObjType packageType){
+  uint8_t buffer[MAX_BLE_PACKAGE_SIZE];
+  //No attempt at reusing existing data
 
-  printf ("\nDone\n");
-  return EXIT_SUCCESS;
+  int returnCode;
 
+  ble_wait_setup(ble, OP_CODE_CREATE);
+  buffer[0]         = OP_CODE_CREATE;
+  buffer[1]         = (uint8_t)packageType;
+  buffer[2]         = (packageDataLength>> 0) & 0xFF;
+  buffer[3]         = (packageDataLength>> 8) & 0xFF;
+  buffer[4]         = (packageDataLength>>16) & 0xFF;
+  buffer[5]         = (packageDataLength>>32) & 0xFF;  
+  ble_send_cp(ble, buffer, 6);
+  returnCode = ble_wait_run(ble);
+  if (returnCode != BLE_DFU_RESP_VAL_SUCCESS){
+    dfuPrintHumanReadableError(returnCode);
+    return returnCode;
+  }
+
+  
+  return BLE_DFU_RESP_VAL_SUCCESS;
 }
 
 
-#if 0
-static int
-send_data_slowly (BLE * b, uint8_t * d, size_t sz)
-{
-  char bs[64];
-  size_t mtu = 16;
-  size_t off = 0;
-  size_t tx;
-
-  memset (bs, '\b', sizeof (bs));
-
-  while (off != sz)
-    {
-      fwrite (bs, 1, sizeof (bs), stdout);
-      printf ("%6u/%6u bytes", (unsigned) off, (unsigned) sz);
-      fflush (stdout);
-
-      tx = (sz - off);
-      if (tx > mtu)
-        tx = mtu;
-
-      if (ble_send_data (b, d + off, tx))
-        {
-          printf ("\nFailed\n");
-          return EXIT_FAILURE;
-        }
-
-      off += tx;
-    }
 
 
-  printf ("\nDone\n");
-  return EXIT_SUCCESS;
-
-}
-#endif
-
-int
-dfu (const char *bdaddr, const char *type, uint8_t * dat,
+int dfu (const char *bdaddr, const char *type, uint8_t * dat,
      size_t dat_sz, uint8_t * bin, size_t bin_sz)
 {
-  BLE *b;
-  uint8_t buf[32];
-  uint16_t u16;
-
-  uint32_t start_data[3];
-  uint8_t dfu_type;
-
-  if (!strcmp (type, "application"))
-    {
-      dfu_type = DFU_UPDATE_APP; /*bit field */
-      start_data[0] = 0;
-      start_data[1] = 0;
-      start_data[2] = bin_sz;
-
-    }
-  else if (!strcmp (type, "bootloader"))
-    {
-      dfu_type = DFU_UPDATE_BL; /*bit field */
-      start_data[0] = 0;
-      start_data[1] = bin_sz;
-      start_data[2] = 0;
-    }
-  else
-    {
-      fprintf (stderr, "No idea how to upload %s\n", type);
-      exit (EXIT_FAILURE);
-    }
+  BLE *ble;
+  uint8_t retries;
+  uint8_t maxRetries=3;
+  uint8_t done = 0;
+  
 
   ble_init ();
 
+  for (retries=0; retries<maxRetries && (!done); retries++){
+    ble = ble_open(bdaddr);
+    if (ble == 0){
+      printf("ERROR: Unable to ble_open with address=%s\n", bdaddr);
+      break;
+    }
 
-  do
+    if (ble_register_notify(ble)){
+      printf("ERROR: Unable to ble_register_notify\n");
+      break;
+    }
+
+
+    if (dfuSendPackage(ble, dat, dat_sz, BLE_OBJ_TYPE_COMMAND) == BLE_DFU_RESP_VAL_SUCCESS){
+      if (dfuSendPackage(ble, bin, bin_sz, BLE_OBJ_TYPE_DATA) == BLE_DFU_RESP_VAL_SUCCESS){
+	done = 1;
+      }
+    }
+
+
+
+    ble_close(ble);
+
+    if (retries<maxRetries && (!done)) {
+      printf("Operation failed, retrying in 3 seconds\n");
+      sleep (3);
+    }
+  }
+
+  
+  if (retries == maxRetries){
+    printf("Too many retries, the operation failed!!!\n");
+    return -1;
+  }
+  else {
+    return 0;
+  }
+
+}
+
+  /*do
     {
 
       b = ble_open (bdaddr);
@@ -140,21 +120,22 @@ dfu (const char *bdaddr, const char *type, uint8_t * dat,
       if (ble_register_notify (b))
         break;
 
-      buf[0] = OP_CODE_START_DFU;
-      buf[1] = dfu_type;        /*bit field */
+           buf[0] = OP_CODE_START_DFU;
+      buf[1] = dfu_type;
 
       ble_wait_setup (b, OP_CODE_START_DFU);
 
       if (ble_send_cp (b, buf, 2))
         break;
 
-      /*4 bytes sd size, 4 bytes bl size, 4 bytes app size */
+      //4 bytes sd size, 4 bytes bl size, 4 bytes app size 
 
 
       if (ble_send_data (b, (uint8_t *) start_data, sizeof (start_data)))
         break;
 
-      if (ble_wait_run (b) != BLE_DFU_RESP_VAL_SUCCESS)
+      if (ble_wait_run
+ (b) != BLE_DFU_RESP_VAL_SUCCESS)
         break;
 
       buf[0] = OP_CODE_RECEIVE_INIT;
@@ -237,17 +218,14 @@ dfu (const char *bdaddr, const char *type, uint8_t * dat,
       return 0;
 
 
-    }
-  while (0);
+      }*/
+  //  while (0);
 
-  if (b)
+  /*  if (b)
     {
       buf[0] = OP_CODE_SYS_RESET;
       ble_send_cp_noresp (b, buf, 1);
       sleep (1);
       ble_close (b);
     }
-
-  return -1;
-
-}
+  */

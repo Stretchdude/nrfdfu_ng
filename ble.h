@@ -1,3 +1,5 @@
+#define MAX_BLE_PACKAGE_SIZE (20)
+
 struct ble
 {
   bdaddr_t src_addr, dst_addr;
@@ -25,6 +27,9 @@ struct ble
   size_t notify_pkts;
   int notify_waiting_for_pkts;
 
+  size_t last_notification_package_size;
+  uint8_t last_notification_package[MAX_BLE_PACKAGE_SIZE];
+  
 };
 
 typedef struct ble BLE;

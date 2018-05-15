@@ -437,18 +437,6 @@ notify_cb (uint16_t value_handle, const uint8_t * value,
 
 
 
-  if ((value_handle == ble->cp_handle) && (length == 5)
-      && (value[0] == OP_CODE_PKT_RCPT_NOTIF))
-    {
-      uint32_t u32;
-      memcpy (&u32, &value[1], 4);
-      ble->notify_pkts = u32;
-      if (ble->notify_waiting_for_pkts)
-        mainloop_quit ();
-      ble->notify_waiting_for_pkts = 0;
-
-      return;
-    }
 
 
 
@@ -469,17 +457,14 @@ notify_cb (uint16_t value_handle, const uint8_t * value,
 
 
 
-  if ((value_handle == ble->cp_handle) && (length == 3)
-      && (value[0] == OP_CODE_RESPONSE)
-      && (value[1] == ble->notify_waiting_for_op))
-    {
-      ble->notify_code = value[2];
-      printf ("Got response => 0x%02x\n", value[2]);
-      mainloop_quit ();
-    }
-
-
-
+  if ((value_handle == ble->cp_handle) && (length >= 3)
+      && (value[0] == OP_CODE_RESPONSE_CODE)
+      && (value[1] == ble->notify_waiting_for_op)) {
+    memcpy(ble->last_notification_package, value, length);
+    ble->last_notification_package_size = length;
+    ble->notify_code = value[2];
+    mainloop_quit();
+  }
 }
 
 static void

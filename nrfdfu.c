@@ -69,13 +69,9 @@ main (int argc, char *argv[])
           (unsigned) bin_size);
 
 
-  while (1)
-    {
-      if (!dfu
-          (bdaddr, m->type, dat, dat_size, bin, bin_size))
-        return EXIT_SUCCESS;
-      sleep (3);
-    }
+  if (!dfu(bdaddr, m->type, dat, dat_size, bin, bin_size)){
+    return EXIT_SUCCESS;  
+  }
 
 
   return EXIT_FAILURE;
