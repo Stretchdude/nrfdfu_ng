@@ -287,6 +287,8 @@ scan_service (struct gatt_db_attribute *attr, void *user_data)
   bool primary;
   bt_uuid_t uuid;
 
+  printf("Service scan of the primary Nordic Service\n");
+  
   if (!gatt_db_attribute_get_service_data (attr, &start, &end, &primary,
                                            &uuid))
     return;
@@ -333,9 +335,9 @@ ready_cb (bool success, uint8_t att_ecode, void *user_data)
 void
 ble_init (void)
 {
-  bt_string_to_uuid (&fota_uuid, "00001530-1212-efde-1523-785feabcd123");
-  bt_string_to_uuid (&cp_uuid, "00001531-1212-efde-1523-785feabcd123");
-  bt_string_to_uuid (&data_uuid, "00001532-1212-efde-1523-785feabcd123");
+  bt_string_to_uuid (&fota_uuid, "0000fe59-0000-1000-8000-00805f9b34fb");
+  bt_string_to_uuid (&cp_uuid,   "8EC90001-F315-4F60-9FB8-838830DAEA50");
+  bt_string_to_uuid (&data_uuid, "8EC90002-F315-4F60-9FB8-838830DAEA50");
   bt_string_to_uuid (&cccd_uuid, "00002902-0000-1000-8000-00805f9b34fb");
 
   mainloop_init ();
@@ -345,6 +347,8 @@ BLE *
 ble_open (const char *bdaddr)
 {
   BLE *ble;
+
+  int mainloopReturnCode;
 
   ble = xmalloc (sizeof (*ble));
   memset (ble, 0, sizeof (*ble));
@@ -415,8 +419,10 @@ ble_open (const char *bdaddr)
   bt_gatt_client_set_ready_handler (ble->gatt, ready_cb, ble, NULL);
 
 
-  if (mainloop_run () == EXIT_SUCCESS)
+  mainloopReturnCode = mainloop_run();
+  if (mainloopReturnCode == EXIT_SUCCESS)
     return ble;
+  printf("mainloop_run call failed with code %d !\n", mainloopReturnCode);
 
   ble_close (ble);
   return NULL;
