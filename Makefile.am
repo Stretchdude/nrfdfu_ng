@@ -20,7 +20,8 @@ CSRCS= \
 	ble.c \
 	manifest.c \
 	dfu.c \
-	hexdump.c
+	hexdump.c \
+	crc32.c
 
 CHDRS= \
 	ble.h \
