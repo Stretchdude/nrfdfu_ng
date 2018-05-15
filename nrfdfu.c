@@ -72,7 +72,7 @@ main (int argc, char *argv[])
   while (1)
     {
       if (!dfu
-          (bdaddr, m->type, m->dfu_version, dat, dat_size, bin, bin_size))
+          (bdaddr, m->type, dat, dat_size, bin, bin_size))
         return EXIT_SUCCESS;
       sleep (3);
     }

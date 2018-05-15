@@ -95,7 +95,7 @@ send_data_slowly (BLE * b, uint8_t * d, size_t sz)
 #endif
 
 int
-dfu (const char *bdaddr, const char *type, const char *version, uint8_t * dat,
+dfu (const char *bdaddr, const char *type, uint8_t * dat,
      size_t dat_sz, uint8_t * bin, size_t bin_sz)
 {
   BLE *b;
