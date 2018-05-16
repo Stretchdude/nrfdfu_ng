@@ -65,7 +65,7 @@ main (int argc, char *argv[])
   bin_size = read_file_from_zip (zip, m->bin_file, &bin);
 
 
-  printf ("%u bytes init_data, %u bytes firmware\n", (unsigned) dat_size,
+  printf ("%u bytes init_data, %u bytes firmware\n\n", (unsigned) dat_size,
           (unsigned) bin_size);
 
 
