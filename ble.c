@@ -435,25 +435,21 @@ notify_cb (uint16_t value_handle, const uint8_t * value,
   int i;
   BLE *ble = user_data;
 
-
-
-
-
-
-  printf ("Handle Value Not/Ind: 0x%04x - ", value_handle);
-
-  if (length == 0)
-    {
+  if (ble->debug){
+    printf ("Handle Value Not/Ind: 0x%04x - ", value_handle);
+    
+    if (length == 0) {
       printf ("(0 bytes)\n");
       return;
     }
-
-  printf ("(%u bytes): ", length);
-
-  for (i = 0; i < length; i++)
-    printf ("%02x ", value[i]);
-
-  printf ("\n");
+    
+    printf ("(%u bytes): ", length);
+    
+    for (i = 0; i < length; i++){
+      printf ("%02x ", value[i]);
+    }
+    printf ("\n");
+  }
 
 
 
@@ -530,8 +526,10 @@ write_cb (bool success, uint8_t att_ecode, void *user_data)
 int
 ble_send_cp (BLE * ble, uint8_t * buf, size_t len)
 {
-  printf ("Sending control:\n");
-  hexdump (buf, len);
+  if (ble->debug){
+    printf ("Sending control:\n");
+    hexdump (buf, len);
+  }
 
   if (!bt_gatt_client_write_value (ble->gatt, ble->cp_handle, buf, len,
                                    write_cb, ble, NULL))
@@ -547,8 +545,10 @@ ble_send_cp (BLE * ble, uint8_t * buf, size_t len)
 int
 ble_send_cp_noresp (BLE * ble, uint8_t * buf, size_t len)
 {
-  printf ("Sending control (but ignoring error):\n");
-  hexdump (buf, len);
+  if (ble->debug){
+    printf ("Sending control (but ignoring error):\n");
+    hexdump (buf, len);
+  }
 
 #if 0
   if (!bt_gatt_client_write_without_response
@@ -651,7 +651,9 @@ ble_wait_run (BLE * ble)
 
   ble->notify_waiting_for_op = -1;
 
-  printf ("Returning response 0x%02x\n", ble->notify_code);
+  if (ble->debug){
+    printf ("Returning response 0x%02x\n", ble->notify_code);
+  }
 
   return ble->notify_code;
 }

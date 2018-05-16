@@ -29,7 +29,9 @@ struct ble
 
   size_t last_notification_package_size;
   uint8_t last_notification_package[MAX_BLE_PACKAGE_SIZE];
-  
+
+  ///If true the ble code is allowed to emit debug messages
+  uint8_t debug;
 };
 
 typedef struct ble BLE;
