@@ -1,4 +1,5 @@
 #include "project.h"
+#include "dfu.h"
 
 static void
 usage (char *name)
@@ -69,7 +70,7 @@ main (int argc, char *argv[])
           (unsigned) bin_size);
 
 
-  if (!dfu(bdaddr, m->type, dat, dat_size, bin, bin_size)){
+  if (dfu(bdaddr, m->type, dat, dat_size, bin, bin_size) == BLE_DFU_RESP_VAL_SUCCESS){
     return EXIT_SUCCESS;  
   }
 

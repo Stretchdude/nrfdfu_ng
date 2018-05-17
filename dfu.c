@@ -20,6 +20,8 @@ struct ErrorDescription errorDescriptions[] = {
   {-1  , "Unknown code: ???"}
 };
 
+#define MAX_BLE_TX_SIZE (20)
+
 void dfuPrintHumanReadableError(int responceCode){
   struct ErrorDescription *errorDescription = errorDescriptions;
   while (errorDescription->code != -1){
@@ -32,18 +34,26 @@ void dfuPrintHumanReadableError(int responceCode){
 }
 
 int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, BleObjType packageType){
+  //Only active if non 0
+  uint32_t debugCreateCRCError = 0;
+  
   uint8_t buffer[MAX_BLE_PACKAGE_SIZE];
   int returnCode;
+  //Number of bytes for the next BLE data transfer
   size_t chunkLength;
+  
   uint8_t done = 0;
+
+  //Number of bytes successfully send until now.
   uint32_t send=0;
   
+  //The transfer block size as reported by "select"
   uint32_t blockSize;
-  //uint32_t numberOfBlocks;
   uint32_t returnedOffset;
+  
   uint32_t returnedCRC32;
   uint32_t calculatedCRC32;
-  //uint32_t currentBlock = 0;
+
   uint32_t currentBlockIndex = 0;
   uint32_t transferSize;
 
@@ -107,17 +117,17 @@ int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, Bl
   }
   else {
     printf("Unexpected notification from the peripheral\n");
-    return -1;
+    return BLE_DFU_RESP_VAL_OPPERATION_FAILED;
   }
-  if (transferSize>blockSize) { transferSize = blockSize; }
+  if (transferSize>blockSize) { transferSize = blockSize; } //Start off with the maximum allowed (actually specifying using smaller transfers than this seems to fail)
 
+  //Ensure that there is actually that much data left to send
   if (transferSize > packageDataLength - send){
     transferSize = packageDataLength - send;
   }
   
   if (transferSize!=0){
-    //There are still data that needs to be send.
-    printf("Creating a new data object for data with size %u\n", transferSize);
+    //There are still data that needs to be send. (in case of a resumed transfer)
     //Create a new object
     ble_wait_setup(ble, OP_CODE_CREATE);
     buffer[0]         = OP_CODE_CREATE;
@@ -142,7 +152,7 @@ int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, Bl
     
     currentBlockIndex = 0;
     while (send + currentBlockIndex < packageDataLength && currentBlockIndex<blockSize){
-      chunkLength = 20;
+      chunkLength = MAX_BLE_TX_SIZE;
       //Handle partially filled buffers due to out of data
       if (chunkLength > packageDataLength - send - currentBlockIndex) {
 	chunkLength = packageDataLength - send - currentBlockIndex;
@@ -152,9 +162,15 @@ int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, Bl
       if (currentBlockIndex + chunkLength > blockSize){
 	chunkLength = blockSize - currentBlockIndex;
       }
+
       memcpy(buffer, packageData+send+currentBlockIndex, chunkLength);
+      if (debugCreateCRCError != 0 && (send + currentBlockIndex >= debugCreateCRCError)){
+	printf("Creating an artificial crc error for debugging\n");
+	debugCreateCRCError = 0;
+	buffer[0] = ~buffer[0];
+      }
       if (ble_send_data_noresp(ble, buffer, chunkLength)!= EXIT_SUCCESS){
-	return -1;
+	return BLE_DFU_RESP_VAL_OPPERATION_FAILED;
       }
       currentBlockIndex += chunkLength;
     }
@@ -180,58 +196,85 @@ int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, Bl
       returnedCRC32  |= ble->last_notification_package[7+2]<<16;
       returnedCRC32  |= ble->last_notification_package[7+3]<<24;
 
-      printf("checksum result %u of %u bytes\n", returnedCRC32, returnedOffset);
+      //printf("checksum result %u of %u bytes\n", returnedCRC32, returnedOffset);
     }
     else {
       printf("Unexpected notification from the peripheral\n");
-      return -1;
+      return BLE_DFU_RESP_VAL_OPPERATION_FAILED;
     }
 
-    //only inc if ok
-    send += currentBlockIndex;
-    
-    if (send >= packageDataLength) {
-      done = 1;
-      //Request command execution to acknowledge the last data
-      ble_wait_setup(ble, OP_CODE_EXECUTE);
-      buffer[0]         = OP_CODE_EXECUTE;
-      ble_send_cp(ble, buffer, 1);
-      returnCode = ble_wait_run(ble);
-      if (returnCode != BLE_DFU_RESP_VAL_SUCCESS){
-	dfuPrintHumanReadableError(returnCode);
-	return returnCode;
+    if (returnedOffset>0){
+      //It really always should be >0
+      calculatedCRC32 = crc32_compute(packageData, returnedOffset, 0);
+      if (calculatedCRC32 == returnedCRC32){
+	send = returnedOffset;    
+	if (send >= packageDataLength) {
+	  //No more data left
+	  done = 1;
+	  //Request command execution to acknowledge the last data
+	  ble_wait_setup(ble, OP_CODE_EXECUTE);
+	  buffer[0]         = OP_CODE_EXECUTE;
+	  ble_send_cp(ble, buffer, 1);
+	  returnCode = ble_wait_run(ble);
+	  if (returnCode != BLE_DFU_RESP_VAL_SUCCESS){
+	    dfuPrintHumanReadableError(returnCode);
+	    return returnCode;
+	  }
+	}
+	else {
+	  //Request command execution to acknowledge the send data
+	  ble_wait_setup(ble, OP_CODE_EXECUTE);
+	  buffer[0]         = OP_CODE_EXECUTE;
+	  ble_send_cp(ble, buffer, 1);
+	  returnCode = ble_wait_run(ble);
+	  if (returnCode != BLE_DFU_RESP_VAL_SUCCESS){
+	    dfuPrintHumanReadableError(returnCode);
+	    return returnCode;
+	  }
+	  if (transferSize > packageDataLength - returnedOffset) { transferSize = packageDataLength - returnedOffset; }
+	  //Create a new object
+	  ble_wait_setup(ble, OP_CODE_CREATE);
+	  buffer[0]         = OP_CODE_CREATE;
+	  buffer[1]         = (uint8_t)packageType;
+	  buffer[2]         = (transferSize>> 0) & 0xFF;
+	  buffer[3]         = (transferSize>> 8) & 0xFF;
+	  buffer[4]         = (transferSize>>16) & 0xFF;
+	  buffer[5]         = (transferSize>>24) & 0xFF;  
+	  ble_send_cp(ble, buffer, 6);
+	  returnCode = ble_wait_run(ble);
+	  if (returnCode != BLE_DFU_RESP_VAL_SUCCESS){
+	    dfuPrintHumanReadableError(returnCode);
+	    return returnCode;
+	  }
+	}
+      }
+      else {
+	//CRC error, retry the transmission
+	printf("CRC error, will now retransmit the data\n");
+	if (transferSize > packageDataLength - returnedOffset) { transferSize = packageDataLength - returnedOffset; }
+	//Create a new object
+	ble_wait_setup(ble, OP_CODE_CREATE);
+	buffer[0]         = OP_CODE_CREATE;
+	buffer[1]         = (uint8_t)packageType;
+	buffer[2]         = (transferSize>> 0) & 0xFF;
+	buffer[3]         = (transferSize>> 8) & 0xFF;
+	buffer[4]         = (transferSize>>16) & 0xFF;
+	buffer[5]         = (transferSize>>24) & 0xFF;  
+	ble_send_cp(ble, buffer, 6);
+	returnCode = ble_wait_run(ble);
+	if (returnCode != BLE_DFU_RESP_VAL_SUCCESS){
+	  dfuPrintHumanReadableError(returnCode);
+	  return returnCode;
+	}
       }
     }
     else {
-      //Request command execution to acknowledge the send data
-      ble_wait_setup(ble, OP_CODE_EXECUTE);
-      buffer[0]         = OP_CODE_EXECUTE;
-      ble_send_cp(ble, buffer, 1);
-      returnCode = ble_wait_run(ble);
-      if (returnCode != BLE_DFU_RESP_VAL_SUCCESS){
-	dfuPrintHumanReadableError(returnCode);
-	return returnCode;
-      }
-      if (transferSize > packageDataLength - returnedOffset) { transferSize = packageDataLength - returnedOffset; }
-      //Create a new object
-      ble_wait_setup(ble, OP_CODE_CREATE);
-      buffer[0]         = OP_CODE_CREATE;
-      buffer[1]         = (uint8_t)packageType;
-      buffer[2]         = (transferSize>> 0) & 0xFF;
-      buffer[3]         = (transferSize>> 8) & 0xFF;
-      buffer[4]         = (transferSize>>16) & 0xFF;
-      buffer[5]         = (transferSize>>24) & 0xFF;  
-      ble_send_cp(ble, buffer, 6);
-      returnCode = ble_wait_run(ble);
-      if (returnCode != BLE_DFU_RESP_VAL_SUCCESS){
-	dfuPrintHumanReadableError(returnCode);
-	return returnCode;
-      }
+      printf("Unexpected 0 bytes transferred reply, this should never happen\n");
+      return BLE_DFU_RESP_VAL_OPPERATION_FAILED;
     }
   }
 
-  printf("\n\n");
-  
+  printf("= DONE =\n");
   return BLE_DFU_RESP_VAL_SUCCESS;
 }
 
@@ -263,9 +306,9 @@ int dfu (const char *bdaddr, const char *type, uint8_t * dat,
       break;
     }
 
-    printf("=== Sending INIT package  ===\n");
+    printf("\n\n=== Sending INIT package  ===\n");
     if (dfuSendPackage(ble, dat, dat_sz, BLE_OBJ_TYPE_COMMAND) == BLE_DFU_RESP_VAL_SUCCESS){
-      printf("=== Sending DATA package  ===\n");
+      printf("\n\n=== Sending DATA package  ===\n");
       if (dfuSendPackage(ble, bin, bin_sz, BLE_OBJ_TYPE_DATA) == BLE_DFU_RESP_VAL_SUCCESS){
 	done = 1;
       }
@@ -284,10 +327,10 @@ int dfu (const char *bdaddr, const char *type, uint8_t * dat,
   
   if (retries == maxRetries){
     printf("Too many retries, the operation failed!!!\n");
-    return -1;
+    return BLE_DFU_RESP_VAL_OPPERATION_FAILED;
   }
   else {
-    return 0;
+    return BLE_DFU_RESP_VAL_SUCCESS;
   }
 
 }
