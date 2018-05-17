@@ -95,7 +95,7 @@ log_service_event (struct gatt_db_attribute *attr, const char *str)
 static void
 service_added_cb (struct gatt_db_attribute *attr, void *user_data)
 {
-  log_service_event (attr, "Service Added");
+  log_service_event (attr, "Service Discovered");
 }
 
 static void
@@ -287,7 +287,7 @@ scan_service (struct gatt_db_attribute *attr, void *user_data)
   bool primary;
   bt_uuid_t uuid;
 
-  printf("Service scan of the primary Nordic Service\n");
+  printf("Service scan of the primary Nordic Semiconductor Service\n");
   
   if (!gatt_db_attribute_get_service_data (attr, &start, &end, &primary,
                                            &uuid))
@@ -473,8 +473,8 @@ register_notify_cb (uint16_t att_ecode, void *user_data)
       mainloop_exit_failure ();
       return;
     }
-
-  printf ("Registered notify handler!\n");
+  
+  //printf ("Registered notify handler!\n");
   mainloop_exit_success ();
 }
 
@@ -500,7 +500,9 @@ ble_register_notify (BLE * ble)
       return EXIT_FAILURE;
     }
 
-  printf ("requesting notify\n");
+  if (ble->debug){
+    printf ("requesting notify\n");
+  }
 
   return mainloop_run ();
 }
