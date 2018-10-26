@@ -24,7 +24,5 @@ extern size_t ble_notify_get_pkts(BLE *ble);
 /* manifest.c */
 extern json_object *_json_object_object_get(json_object *obj, const char *name);
 extern struct manifest *parse_manifest(const char *str);
-/* dfu.c */
-extern int dfu(const char *bdaddr, const char *type, uint8_t *dat, size_t dat_sz, uint8_t *bin, size_t bin_sz);
 /* hexdump.c */
 extern void hexdump(void *_d, int len);

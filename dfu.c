@@ -281,7 +281,7 @@ int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, Bl
 
 
 
-int dfu (const char *bdaddr, const char *type, uint8_t * dat,
+int dfu (const char *bdaddr, uint8_t * dat,
      size_t dat_sz, uint8_t * bin, size_t bin_sz)
 {
   BLE *ble;
@@ -289,10 +289,13 @@ int dfu (const char *bdaddr, const char *type, uint8_t * dat,
   uint8_t maxRetries=3;
   uint8_t done = 0;
   
-
-  ble_init ();
+  ble_init();
   ble = ble_open(bdaddr);
-    
+  if (ble==0){
+    fprintf(stderr, "Failed open BLE connection\n");
+    return BLE_DFU_RESP_VAL_OPPERATION_FAILED;
+  }
+  
   for (retries=0; retries<maxRetries && (!done); retries++){
 
     ble->debug = 0;

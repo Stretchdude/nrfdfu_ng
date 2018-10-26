@@ -1,6 +1,9 @@
 struct manifest
 {
-  const char *type;
-  const char *dat_file;
-  const char *bin_file;
+  char hasApplication;
+  const char *applicationDatFileName;
+  const char *applicationBinFileName;
+  char hasSDBootloader;
+  const char *sdBootloaderDatFileName;
+  const char *sdBootloaderBinFileName;
 };

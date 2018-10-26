@@ -180,8 +180,7 @@ l2cap_le_att_connect (bdaddr_t * src, bdaddr_t * dst, uint8_t dst_type,
 
 
 
-void
-ble_close (BLE * ble)
+void ble_close (BLE * ble)
 {
   if (!ble)
     return;
@@ -199,12 +198,11 @@ ble_close (BLE * ble)
 
   if (ble->att)
     bt_att_unref (ble->att);
+  
   if (ble->fd > 0)
     close (ble->fd);
 
-
   free (ble);
-
 }
 
 

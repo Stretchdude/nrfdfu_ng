@@ -61,19 +61,30 @@ main (int argc, char *argv[])
 
   m = parse_manifest (m_str);
 
-  dat_size = read_file_from_zip (zip, m->dat_file, &dat);
+  if (m->hasSDBootloader) {
+    dat_size = read_file_from_zip (zip, m->sdBootloaderDatFileName, &dat);
+    bin_size = read_file_from_zip (zip, m->sdBootloaderBinFileName, &bin);
+    
+    printf ("%u bytes init_data, %u bytes SD+bootloader\n\n", (unsigned) dat_size, (unsigned) bin_size);
 
-  bin_size = read_file_from_zip (zip, m->bin_file, &bin);
-
-
-  printf ("%u bytes init_data, %u bytes firmware\n\n", (unsigned) dat_size,
-          (unsigned) bin_size);
-
-
-  if (dfu(bdaddr, m->type, dat, dat_size, bin, bin_size) == BLE_DFU_RESP_VAL_SUCCESS){
-    return EXIT_SUCCESS;  
+    if (dfu(bdaddr, dat, dat_size, bin, bin_size) != BLE_DFU_RESP_VAL_SUCCESS){
+      return EXIT_FAILURE;  
+    }
+    sleep(5);
   }
 
 
-  return EXIT_FAILURE;
+  if (m->hasApplication) {
+    dat_size = read_file_from_zip (zip, m->applicationDatFileName, &dat);
+    bin_size = read_file_from_zip (zip, m->applicationBinFileName, &bin);
+    
+    printf ("%u bytes init_data, %u bytes firmware\n\n", (unsigned) dat_size, (unsigned) bin_size);
+
+    if (dfu(bdaddr, dat, dat_size, bin, bin_size) != BLE_DFU_RESP_VAL_SUCCESS){
+      return EXIT_FAILURE;  
+    }
+  }
+
+
+  return EXIT_SUCCESS;
 }
