@@ -17,23 +17,60 @@ struct ErrorDescription errorDescriptions[] = {
   {0x07, "Unsupported type: The provided object type was not valid for a Create or Read operation."},
   {0x08, "Operation not permitted: The state of the DFU process did not allow this operation."},
   {0x0A, "Operation failed: The operation failed."},
+  {0x0B, "Extended error."},
   {-1  , "Unknown code: ???"}
 };
 
+struct ErrorDescription extendedErrorDescriptions[] =
+  {
+   {0x00, "No extended error code has been set. This error indicates an implementation problem."},
+   {0x01, "Invalid error code. This error code should  never be used outside of development."},
+   {0x02, "The format of the command was incorrect. This error code is not used in the current implementation"},
+   {0x03, "The command was successfully parsed, but it is not supported or unknown."},
+   {0x04, "The init command is invalid. The init packet either has an invalid update type or it is missing required fields for the update type"},
+   {0x05, "The firmware version is too low."},
+   {0x06, "The hardware version of the device does not match the required hardware version for the update."},
+   {0x07, "The array of supported SoftDevices for the update does not contain the FWID of the current SoftDevice"},
+   {0x08, "The init packet does not contain a signature. This error code is not used in the current implementation, because init packets without a signature are regarded as invalid."},
+   {0x09, "The hash type that is specified by the init packet is not supported by the DFU bootloader."},
+   {0x0A, "The hash of the firmware image cannot be calculated."},
+   {0x0B, "The type of the signature is unknown or not supported by the DFU bootloader."},
+   {0x0C, "The hash of the received firmware image does not match the hash in the init packet."},
+   {0x0D, "The available space on the device is insufficient to hold the firmware."},
+   {-1  , "Unknown extended code: ???"}
+  };
+
+
 #define MAX_BLE_TX_SIZE (20)
 
-void dfuPrintHumanReadableError(int responceCode){
+void dfuPrintHumanReadableError(BLE *ble){
+  int notifyCode, extendedNotifyCode;
+  ble_getNotifyCodes(ble, &notifyCode, &extendedNotifyCode);
+
+  
   struct ErrorDescription *errorDescription = errorDescriptions;
   while (errorDescription->code != -1){
-    if (errorDescription->code == responceCode){
+    if (errorDescription->code == notifyCode){
       break;
     }
     errorDescription++;
   }
-  printf("The operation failed \"%s (code: %d)\"\n", errorDescription->description, responceCode);
+  printf("The operation failed \"%s (code: %d)\"\n", errorDescription->description, notifyCode);
+
+  if (notifyCode == 0x0B){
+    struct ErrorDescription *errorDescription = extendedErrorDescriptions;
+    while (errorDescription->code != -1){
+      if (errorDescription->code == extendedNotifyCode){
+	break;
+      }
+      errorDescription++;
+    }
+    printf("%s (extended code: %d)\"\n", errorDescription->description, extendedNotifyCode);
+  }
 }
 
 int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, BleObjType packageType){
+  static uint8_t dontResume = 0;
   //Only active if non 0
   uint32_t debugCreateCRCError = 0;
   
@@ -66,7 +103,7 @@ int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, Bl
   ble_send_cp(ble, buffer, 2);
   returnCode = ble_wait_run(ble);
   if (returnCode != BLE_DFU_RESP_VAL_SUCCESS){
-    dfuPrintHumanReadableError(returnCode);
+    dfuPrintHumanReadableError(ble);
     return returnCode;
   }
   if (ble->last_notification_package_size == 15 && ble->last_notification_package[1] == OP_CODE_SELECT){
@@ -90,27 +127,38 @@ int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, Bl
 
     if (returnedOffset > 0){
       calculatedCRC32 = crc32_compute(packageData, returnedOffset, 0);
-      if (calculatedCRC32 == returnedCRC32){
-	printf("Data ok, resuming transmission\n");
-	send = returnedOffset;
-	//Request command execution to acknowledge the existing data
-	ble_wait_setup(ble, OP_CODE_EXECUTE);
-	buffer[0]         = OP_CODE_EXECUTE;
-	ble_send_cp(ble, buffer, 1);
-	returnCode = ble_wait_run(ble);
-	if (returnCode != BLE_DFU_RESP_VAL_SUCCESS){
-	  dfuPrintHumanReadableError(returnCode);
-	  if (returnCode == BLE_DFU_RESP_VAL_OPPERATION_NOT_PERMITTED){
-	    printf("\n\n");
-	    printf("=================================================\n");
-	    printf("= To resolve this either power cycle the device =\n");
-	    printf("=         or allow the DFU to timeout           =\n");
-	    printf("=               and try again                   =\n");
-	    printf("=================================================\n");
-	    printf("\n\n");
-	  }
-	  return returnCode;
+      if (calculatedCRC32 == returnedCRC32) {
+	if ((packageType == BLE_OBJ_TYPE_COMMAND) && dontResume) {
+	  printf ("Resume was aborted\n");
 	}
+	else {
+	  printf("Data ok, resuming transmission\n");
+	  send = returnedOffset;
+	  //Request command execution to acknowledge the existing data
+	  ble_wait_setup(ble, OP_CODE_EXECUTE);
+	  buffer[0]         = OP_CODE_EXECUTE;
+	  ble_send_cp(ble, buffer, 1);
+	  returnCode = ble_wait_run(ble);
+	  if (returnCode != BLE_DFU_RESP_VAL_SUCCESS){
+	    dfuPrintHumanReadableError(ble);
+	    if (returnCode == BLE_DFU_RESP_VAL_OPPERATION_NOT_PERMITTED){
+	      printf("\n\n");
+	      printf("=================================================\n");
+	      printf("= To resolve this either power cycle the device =\n");
+	      printf("=         or allow the DFU to timeout           =\n");
+	      printf("=               and try again                   =\n");
+	      printf("=================================================\n");
+	      printf("\n\n");
+	    }
+	    dontResume = 1;
+	    return returnCode;
+	  }
+	}
+      }
+      else {
+	dontResume = 1;
+	printf("Bad CRC for existing data!\n");
+	return BLE_DFU_RESP_VAL_OPPERATION_FAILED;
       }
     }
 
@@ -139,7 +187,7 @@ int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, Bl
     ble_send_cp(ble, buffer, 6);
     returnCode = ble_wait_run(ble);
     if (returnCode != BLE_DFU_RESP_VAL_SUCCESS){
-      dfuPrintHumanReadableError(returnCode);
+      dfuPrintHumanReadableError(ble);
       return returnCode;
     }
   }
@@ -182,7 +230,7 @@ int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, Bl
     ble_send_cp(ble, buffer, 1);
     returnCode = ble_wait_run(ble);
     if (returnCode != BLE_DFU_RESP_VAL_SUCCESS){
-      dfuPrintHumanReadableError(returnCode);
+      dfuPrintHumanReadableError(ble);
       return returnCode;
     }
     if (ble->last_notification_package_size == 11 && ble->last_notification_package[1] == OP_CODE_CALCULATE_CHECKSUM){
@@ -217,7 +265,7 @@ int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, Bl
 	  ble_send_cp(ble, buffer, 1);
 	  returnCode = ble_wait_run(ble);
 	  if (returnCode != BLE_DFU_RESP_VAL_SUCCESS){
-	    dfuPrintHumanReadableError(returnCode);
+	    dfuPrintHumanReadableError(ble);
 	    return returnCode;
 	  }
 	}
@@ -228,7 +276,7 @@ int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, Bl
 	  ble_send_cp(ble, buffer, 1);
 	  returnCode = ble_wait_run(ble);
 	  if (returnCode != BLE_DFU_RESP_VAL_SUCCESS){
-	    dfuPrintHumanReadableError(returnCode);
+	    dfuPrintHumanReadableError(ble);
 	    return returnCode;
 	  }
 	  if (transferSize > packageDataLength - returnedOffset) { transferSize = packageDataLength - returnedOffset; }
@@ -243,14 +291,14 @@ int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, Bl
 	  ble_send_cp(ble, buffer, 6);
 	  returnCode = ble_wait_run(ble);
 	  if (returnCode != BLE_DFU_RESP_VAL_SUCCESS){
-	    dfuPrintHumanReadableError(returnCode);
+	    dfuPrintHumanReadableError(ble);
 	    return returnCode;
 	  }
 	}
       }
       else {
 	//CRC error, retry the transmission
-	printf("CRC error, will now retransmit the data\n");
+	printf("CRC error for %u bytes, will now retransmit the data\n", returnedOffset);
 	if (transferSize > packageDataLength - returnedOffset) { transferSize = packageDataLength - returnedOffset; }
 	//Create a new object
 	ble_wait_setup(ble, OP_CODE_CREATE);
@@ -263,7 +311,7 @@ int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, Bl
 	ble_send_cp(ble, buffer, 6);
 	returnCode = ble_wait_run(ble);
 	if (returnCode != BLE_DFU_RESP_VAL_SUCCESS){
-	  dfuPrintHumanReadableError(returnCode);
+	  dfuPrintHumanReadableError(ble);
 	  return returnCode;
 	}
       }

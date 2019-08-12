@@ -353,6 +353,7 @@ ble_open (const char *bdaddr)
 
   ble->notify_waiting_for_op = -1;
   ble->notify_code = -1;
+  ble->extended_notify_code = -1;
 
   ble->sec = BT_SECURITY_LOW;
   ble->dst_type = BDADDR_LE_RANDOM;
@@ -457,6 +458,12 @@ notify_cb (uint16_t value_handle, const uint8_t * value,
     memcpy(ble->last_notification_package, value, length);
     ble->last_notification_package_size = length;
     ble->notify_code = value[2];
+    if (ble->notify_code == 0x0B && length >=4){
+      ble->extended_notify_code = value[3];
+    }
+    else {
+      ble->extended_notify_code = -1;
+    }
     mainloop_quit();
   }
 }
@@ -641,6 +648,7 @@ ble_wait_setup (BLE * ble, uint8_t op)
 {
   ble->notify_waiting_for_op = op;
   ble->notify_code = -1;
+  ble->extended_notify_code = -1;
 }
 
 
@@ -656,6 +664,11 @@ ble_wait_run (BLE * ble)
   }
 
   return ble->notify_code;
+}
+
+void ble_getNotifyCodes(BLE *ble, int *notifyCode, int *extendedNotifyCode){
+  *notifyCode = ble->notify_code;
+  *extendedNotifyCode = ble->extended_notify_code;    
 }
 
 void

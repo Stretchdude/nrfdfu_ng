@@ -22,6 +22,7 @@ struct ble
 
   int notify_waiting_for_op;
   int notify_code;
+  int extended_notify_code;
 
 
   size_t notify_pkts;
