@@ -354,6 +354,7 @@ ble_open (const char *bdaddr)
   ble->notify_waiting_for_op = -1;
   ble->notify_code = -1;
   ble->extended_notify_code = -1;
+  ble->mtu = BT_ATT_DEFAULT_LE_MTU;
 
   ble->sec = BT_SECURITY_LOW;
   ble->dst_type = BDADDR_LE_RANDOM;
@@ -403,7 +404,7 @@ ble_open (const char *bdaddr)
 
 
   ble->db = gatt_db_new ();
-  ble->gatt = bt_gatt_client_new (ble->db, ble->att, ble->mtu);
+  ble->gatt = bt_gatt_client_new (ble->db, ble->att, BT_ATT_MAX_LE_MTU);
 
 
   gatt_db_register (ble->db, service_added_cb, service_removed_cb,
@@ -417,10 +418,13 @@ ble_open (const char *bdaddr)
 
   bt_gatt_client_set_ready_handler (ble->gatt, ready_cb, ble, NULL);
 
-
   mainloopReturnCode = mainloop_run();
-  if (mainloopReturnCode == EXIT_SUCCESS)
+
+  if (mainloopReturnCode == EXIT_SUCCESS) {
+    ble->mtu = bt_gatt_client_get_mtu(ble->gatt);
     return ble;
+  }
+
   printf("mainloop_run call failed with code %d !\n", mainloopReturnCode);
 
   ble_close (ble);
@@ -455,6 +459,9 @@ notify_cb (uint16_t value_handle, const uint8_t * value,
   if ((value_handle == ble->cp_handle) && (length >= 3)
       && (value[0] == OP_CODE_RESPONSE_CODE)
       && (value[1] == ble->notify_waiting_for_op)) {
+    if (length > sizeof(ble->last_notification_package)) {
+      length= sizeof(ble->last_notification_package);
+    }
     memcpy(ble->last_notification_package, value, length);
     ble->last_notification_package_size = length;
     ble->notify_code = value[2];

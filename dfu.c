@@ -41,8 +41,6 @@ struct ErrorDescription extendedErrorDescriptions[] =
   };
 
 
-#define MAX_BLE_TX_SIZE (20)
-
 void dfuPrintHumanReadableError(BLE *ble){
   int notifyCode, extendedNotifyCode;
   ble_getNotifyCodes(ble, &notifyCode, &extendedNotifyCode);
@@ -74,7 +72,7 @@ int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, Bl
   //Only active if non 0
   uint32_t debugCreateCRCError = 0;
   
-  uint8_t buffer[MAX_BLE_PACKAGE_SIZE];
+  uint8_t buffer[MAX_DFU_PAYLOAD];
   int returnCode;
   //Number of bytes for the next BLE data transfer
   size_t chunkLength;
@@ -200,7 +198,10 @@ int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, Bl
     
     currentBlockIndex = 0;
     while (send + currentBlockIndex < packageDataLength && currentBlockIndex<blockSize){
-      chunkLength = MAX_BLE_TX_SIZE;
+      chunkLength = GATT_PAYLOAD(ble->mtu);
+      if (chunkLength > sizeof(buffer)) {
+        chunkLength = sizeof(buffer);
+      }
       //Handle partially filled buffers due to out of data
       if (chunkLength > packageDataLength - send - currentBlockIndex) {
 	chunkLength = packageDataLength - send - currentBlockIndex;

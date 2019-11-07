@@ -1,4 +1,5 @@
-#define MAX_BLE_PACKAGE_SIZE (20)
+#define GATT_HEADER_LEN	3
+#define GATT_PAYLOAD(mtu)	((mtu) - GATT_HEADER_LEN)
 
 struct ble
 {
@@ -29,7 +30,7 @@ struct ble
   int notify_waiting_for_pkts;
 
   size_t last_notification_package_size;
-  uint8_t last_notification_package[MAX_BLE_PACKAGE_SIZE];
+  uint8_t last_notification_package[BT_ATT_DEFAULT_LE_MTU];
 
   ///If true the ble code is allowed to emit debug messages
   uint8_t debug;

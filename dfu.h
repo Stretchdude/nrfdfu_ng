@@ -1,3 +1,6 @@
+#define MAX_DFU_PAYLOAD GATT_PAYLOAD(BT_ATT_MAX_LE_MTU)
+/* MTU is limited by setting on nRF5 side, see NRF_SDH_BLE_GATT_MAX_MTU_SIZE
+ * in sdk_config.h */
 
 typedef enum {
   BLE_DFU_RESP_VAL_INVALID_CODE                  = 0x00,
