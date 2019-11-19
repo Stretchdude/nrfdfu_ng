@@ -1,5 +1,6 @@
 #include "project.h"
 #include "dfu.h"
+#include "bluez/mainloop.h"
 
 static void
 usage (char *name)
@@ -24,6 +25,7 @@ main (int argc, char *argv[])
   char *bdaddr = NULL;
   char *pkg_fn = NULL;
   int opt;
+  bdaddr_t dst;
   struct zip *zip;
   char *m_str;
   struct manifest *m;
@@ -54,6 +56,12 @@ main (int argc, char *argv[])
   if ((!bdaddr) || (!pkg_fn))
     usage (argv[0]);
 
+  ble_init();
+
+  if (str2ba (bdaddr, &dst) < 0) {
+    printf ("Invalid remote address: %s\n", bdaddr);
+    return EXIT_FAILURE;
+  }
 
   zip = open_zip (pkg_fn);
 
@@ -67,7 +75,8 @@ main (int argc, char *argv[])
     
     printf ("%u bytes init_data, %u bytes SD+bootloader\n\n", (unsigned) dat_size, (unsigned) bin_size);
 
-    if (dfu(bdaddr, dat, dat_size, bin, bin_size) != BLE_DFU_RESP_VAL_SUCCESS){
+    if (dfu(&dst, dat, dat_size, bin, bin_size) != BLE_DFU_RESP_VAL_SUCCESS){
+      mainloop_finish ();
       return EXIT_FAILURE;  
     }
     sleep(5);
@@ -80,11 +89,12 @@ main (int argc, char *argv[])
     
     printf ("%u bytes init_data, %u bytes firmware\n\n", (unsigned) dat_size, (unsigned) bin_size);
 
-    if (dfu(bdaddr, dat, dat_size, bin, bin_size) != BLE_DFU_RESP_VAL_SUCCESS){
+    if (dfu(&dst, dat, dat_size, bin, bin_size) != BLE_DFU_RESP_VAL_SUCCESS){
+      mainloop_finish ();
       return EXIT_FAILURE;  
     }
   }
 
-
+  mainloop_finish ();
   return EXIT_SUCCESS;
 }
