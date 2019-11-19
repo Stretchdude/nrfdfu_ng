@@ -60,7 +60,7 @@ parse_manifest (const char *str)
     }
     else {
       fprintf (stderr, "Unhandled manifest content '");
-      fprintf (stderr, key);
+      fprintf (stderr, "%s", key);
       fprintf (stderr, "' this tool needs to be updated to support this\n");
       exit (EXIT_FAILURE);
     }
