@@ -19,6 +19,12 @@ dump_manifest (struct manifest *m)
     printf("  bin_file : %s\n", m->sdBootloaderBinFileName);
     printf("\n");
   }
+  if (m->hasBootloader){
+    printf("  == Bootloader ==\n");
+    printf("  dat_file : %s\n", m->bootloaderDatFileName);
+    printf("  bin_file : %s\n", m->bootloaderBinFileName);
+    printf("\n");
+  }
   if (m->hasApplication){
     printf("  == Application ==\n");
     printf("  dat_file : %s\n", m->applicationDatFileName);
@@ -58,6 +64,11 @@ parse_manifest (const char *str)
       m->sdBootloaderBinFileName = json_object_get_string (_json_object_object_get (val, "bin_file"));
       m->sdBootloaderDatFileName = json_object_get_string (_json_object_object_get (val, "dat_file"));
     }
+    else if (strcmp(key,"bootloader")==0){
+      m->hasBootloader = 1;
+      m->bootloaderBinFileName = json_object_get_string (_json_object_object_get (val, "bin_file"));
+      m->bootloaderDatFileName = json_object_get_string (_json_object_object_get (val, "dat_file"));
+    }
     else {
       fprintf (stderr, "Unhandled manifest content '");
       fprintf (stderr, key);
@@ -70,8 +81,10 @@ parse_manifest (const char *str)
   dump_manifest (m);
 
 
-  if ((m->hasApplication  && ((!m->applicationDatFileName)  || (!m->applicationBinFileName))) ||
-      (m->hasSDBootloader && ((!m->sdBootloaderDatFileName) || (!m->sdBootloaderBinFileName)))) {
+  if ((m->hasApplication  && ((!m->applicationDatFileName)  || (!m->applicationBinFileName)) ) ||
+      (m->hasSDBootloader && ((!m->sdBootloaderDatFileName) || (!m->sdBootloaderBinFileName))) ||
+      (m->hasBootloader   && ((!m->bootloaderDatFileName)   || (!m->bootloaderBinFileName))  )       
+      ) {
     fprintf (stderr, "Failed to process manifest\n");
     exit (EXIT_FAILURE);
   }

@@ -1,6 +1,7 @@
 #include "project.h"
 #include "dfu.h"
 #include "crc32.h"
+#include <unistd.h>
 
 struct ErrorDescription {
   int code;
@@ -156,9 +157,11 @@ int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, Bl
 	}
       }
       else {
-	dontResume = 1;
 	printf("Bad CRC for existing data!\n");
-	return BLE_DFU_RESP_VAL_OPPERATION_FAILED;
+	if (packageType == BLE_OBJ_TYPE_DATA){
+	  dontResume = 1;
+	  return BLE_DFU_RESP_VAL_OPPERATION_FAILED;
+	}
       }
     }
 
@@ -223,6 +226,11 @@ int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, Bl
       currentBlockIndex += chunkLength;
     }
     
+    if (currentBlockIndex < blockSize){
+      //less than a full block was send, sleep before requesting the checksum
+      //This is done to work around a bug where a very short final transfer causes an error for the DFU update (when sending data fast)
+      sleep(1);
+    }
     
     //Request checksum
     ble_wait_setup(ble, OP_CODE_CALCULATE_CHECKSUM);

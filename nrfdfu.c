@@ -73,6 +73,18 @@ main (int argc, char *argv[])
     sleep(5);
   }
 
+  if (m->hasBootloader) {
+    dat_size = read_file_from_zip (zip, m->bootloaderDatFileName, &dat);
+    bin_size = read_file_from_zip (zip, m->bootloaderBinFileName, &bin);
+    
+    printf ("%u bytes init_data, %u bytes bootloader\n\n", (unsigned) dat_size, (unsigned) bin_size);
+
+    if (dfu(bdaddr, dat, dat_size, bin, bin_size) != BLE_DFU_RESP_VAL_SUCCESS){
+      return EXIT_FAILURE;  
+    }
+    sleep(5);
+  }
+
 
   if (m->hasApplication) {
     dat_size = read_file_from_zip (zip, m->applicationDatFileName, &dat);
