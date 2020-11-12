@@ -88,7 +88,8 @@ main (int argc, char *argv[])
     
     printf ("%u bytes init_data, %u bytes bootloader\n\n", (unsigned) dat_size, (unsigned) bin_size);
 
-    if (dfu(bdaddr, dat, dat_size, bin, bin_size) != BLE_DFU_RESP_VAL_SUCCESS){
+    if (dfu(&dst, dat, dat_size, bin, bin_size) != BLE_DFU_RESP_VAL_SUCCESS){
+      mainloop_finish();
       return EXIT_FAILURE;  
     }
     sleep(5);
