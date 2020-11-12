@@ -1,3 +1,6 @@
+#define MAX_DFU_PAYLOAD GATT_PAYLOAD(BT_ATT_MAX_LE_MTU)
+/* MTU is limited by setting on nRF5 side, see NRF_SDH_BLE_GATT_MAX_MTU_SIZE
+ * in sdk_config.h */
 
 typedef enum {
   BLE_DFU_RESP_VAL_INVALID_CODE                  = 0x00,
@@ -25,4 +28,8 @@ typedef enum {
   BLE_OBJ_TYPE_DATA    = 0x02
 } BleObjType;
 
-int dfu(const char *bdaddr, uint8_t *dat, size_t dat_sz, uint8_t *bin, size_t bin_sz);
+enum {
+  DFU_OP_ENTER_BOOTLOADER = 0x01
+};
+
+int dfu(bdaddr_t *dst, uint8_t *dat, size_t dat_sz, uint8_t *bin, size_t bin_sz);

@@ -10,8 +10,9 @@ extern size_t read_file_from_zip(struct zip *zip, const char *fn, void *_buf);
 /* ble.c */
 extern void ble_close(BLE *ble);
 extern void ble_init(void);
-extern BLE *ble_open(const char *bdaddr);
+extern BLE *ble_open(const bdaddr_t *dst);
 extern int ble_register_notify(BLE *ble);
+extern int ble_send_trigger(BLE *ble, uint8_t *buf, size_t len);
 extern int ble_send_cp(BLE *ble, uint8_t *buf, size_t len);
 extern int ble_send_cp_noresp(BLE *ble, uint8_t *buf, size_t len);
 extern int ble_send_data(BLE *ble, uint8_t *buf, size_t len);

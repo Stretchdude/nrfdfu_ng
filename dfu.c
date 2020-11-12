@@ -42,8 +42,6 @@ struct ErrorDescription extendedErrorDescriptions[] =
   };
 
 
-#define MAX_BLE_TX_SIZE (20)
-
 void dfuPrintHumanReadableError(BLE *ble){
   int notifyCode, extendedNotifyCode;
   ble_getNotifyCodes(ble, &notifyCode, &extendedNotifyCode);
@@ -75,7 +73,7 @@ int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, Bl
   //Only active if non 0
   uint32_t debugCreateCRCError = 0;
   
-  uint8_t buffer[MAX_BLE_PACKAGE_SIZE];
+  uint8_t buffer[MAX_DFU_PAYLOAD];
   int returnCode;
   //Number of bytes for the next BLE data transfer
   size_t chunkLength;
@@ -123,8 +121,8 @@ int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, Bl
     returnedCRC32  |= ble->last_notification_package[11+2]<<16;
     returnedCRC32  |= ble->last_notification_package[11+3]<<24;
 
-    printf("Start offset %u and CRC %u\n", returnedOffset, returnedCRC32);    
-    printf("Transfer block size is %u bytes\n", blockSize);
+    printf("Start offset %u and CRC %08x\n", returnedOffset, returnedCRC32);
+    printf("Transfer block size is %u bytes, MTU %u\n", blockSize, ble->mtu);
 
     if (returnedOffset > 0){
       calculatedCRC32 = crc32_compute(packageData, returnedOffset, 0);
@@ -203,7 +201,10 @@ int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, Bl
     
     currentBlockIndex = 0;
     while (send + currentBlockIndex < packageDataLength && currentBlockIndex<blockSize){
-      chunkLength = MAX_BLE_TX_SIZE;
+      chunkLength = GATT_PAYLOAD(ble->mtu);
+      if (chunkLength > sizeof(buffer)) {
+        chunkLength = sizeof(buffer);
+      }
       //Handle partially filled buffers due to out of data
       if (chunkLength > packageDataLength - send - currentBlockIndex) {
 	chunkLength = packageDataLength - send - currentBlockIndex;
@@ -252,7 +253,7 @@ int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, Bl
       returnedCRC32  |= ble->last_notification_package[7+2]<<16;
       returnedCRC32  |= ble->last_notification_package[7+3]<<24;
 
-      //printf("checksum result %u of %u bytes\n", returnedCRC32, returnedOffset);
+      //printf("checksum result %08x of %u bytes\n", returnedCRC32, returnedOffset);
     }
     else {
       printf("Unexpected notification from the peripheral\n");
@@ -306,6 +307,7 @@ int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, Bl
       }
       else {
 	//CRC error, retry the transmission
+	//printf("Calculated CRC %08x, sent so far %u\n", calculatedCRC32, currentBlockIndex + send);
 	printf("CRC error for %u bytes, will now retransmit the data\n", returnedOffset);
 	if (transferSize > packageDataLength - returnedOffset) { transferSize = packageDataLength - returnedOffset; }
 	//Create a new object
@@ -337,29 +339,52 @@ int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, Bl
 
 
 
-int dfu (const char *bdaddr, uint8_t * dat,
+int dfu (bdaddr_t *dst, uint8_t * dat,
      size_t dat_sz, uint8_t * bin, size_t bin_sz)
 {
   BLE *ble;
   uint8_t retries;
   uint8_t maxRetries=3;
   uint8_t done = 0;
+  char bdaddr[80];
   
-  ble_init();
-  ble = ble_open(bdaddr);
-  if (ble==0){
-    fprintf(stderr, "Failed open BLE connection\n");
-    return BLE_DFU_RESP_VAL_OPPERATION_FAILED;
+  ble = ble_open(dst);
+
+  if (ble && (!ble->cp_handle || !ble->data_handle) && ble->btnless_handle) {
+    printf("\nButtonless DFU activation\n");
+    ble->cp_handle = ble->btnless_handle;
+    if (ble_register_notify(ble)){
+      printf("ERROR: Unable to ble_register_notify\n");
+      return BLE_DFU_RESP_VAL_OPPERATION_FAILED;
+    }
+    uint8_t op= DFU_OP_ENTER_BOOTLOADER;
+    ble_send_cp(ble, &op, sizeof(op));
+    int returnCode = ble_wait_run(ble);
+    // nRF5 BLE client restarts now, expect disconnect
+    if (returnCode != BLE_DFU_RESP_VAL_SUCCESS && returnCode != -1){
+      dfuPrintHumanReadableError(ble);
+      return returnCode;
+    }
+
+    ble_close(ble);
+
+    dst->b[0]++;
+    ba2str(dst, bdaddr);
+    printf("\nReconnecting to DFU address %s\n", bdaddr);
+
+    ble = ble_open(dst);
   }
   
+
   for (retries=0; retries<maxRetries && (!done); retries++){
 
-    ble->debug = 0;
     if (ble == 0){
+      ba2str(dst, bdaddr);
       printf("ERROR: Unable to ble_open with address=%s\n", bdaddr);
       break;
     }
 
+    ble->debug = 0;
     if (ble_register_notify(ble)){
       printf("ERROR: Unable to ble_register_notify\n");
       break;

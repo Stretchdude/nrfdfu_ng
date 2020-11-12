@@ -8,7 +8,7 @@ static int verbose = 0;
 
 #define ATT_CID 4
 
-static bt_uuid_t fota_uuid, cp_uuid, data_uuid, cccd_uuid;
+static bt_uuid_t fota_uuid, cp_uuid, data_uuid, btnless_uuid, expbtnl_uuid, cccd_uuid;
 
 
 static const char *
@@ -185,8 +185,6 @@ void ble_close (BLE * ble)
   if (!ble)
     return;
 
-  mainloop_finish ();
-
   if (ble->notify_id)
     bt_gatt_client_unregister_notify (ble->gatt, ble->notify_id);
 
@@ -272,6 +270,12 @@ scan_chrc (struct gatt_db_attribute *attr, void *user_data)
       gatt_db_service_foreach_desc (attr, scan_desc, ble);
     }
 
+  if (!bt_uuid_cmp (&uuid, &btnless_uuid) || !bt_uuid_cmp (&uuid, &expbtnl_uuid))
+    {
+      ble->btnless_handle = value_handle;
+      gatt_db_service_foreach_desc (attr, scan_desc, ble);
+    }
+
 }
 
 
@@ -315,12 +319,13 @@ ready_cb (bool success, uint8_t att_ecode, void *user_data)
 
 
   gatt_db_foreach_service (ble->db, &fota_uuid, scan_service, ble);
+  gatt_db_foreach_service (ble->db, &expbtnl_uuid, scan_service, ble);
 
 
-  printf ("Handles:\n\tdata: 0x%04x\n\tcp  : 0x%04x\n\tcccd: 0x%04x\n",
-          ble->data_handle, ble->cp_handle, ble->cccd_handle);
+  printf ("Handles:\n\tdata: 0x%04x\n\tcp  : 0x%04x\n\tcccd: 0x%04x\n\ttrig: 0x%04x\n",
+          ble->data_handle, ble->cp_handle, ble->cccd_handle, ble->btnless_handle);
 
-  if (ble->cccd_handle && ble->cp_handle && ble->data_handle)
+  if (ble->cccd_handle && ((ble->cp_handle && ble->data_handle) || ble->btnless_handle))
     {
       mainloop_exit_success ();
       return;
@@ -333,16 +338,18 @@ ready_cb (bool success, uint8_t att_ecode, void *user_data)
 void
 ble_init (void)
 {
-  bt_string_to_uuid (&fota_uuid, "0000fe59-0000-1000-8000-00805f9b34fb");
-  bt_string_to_uuid (&cp_uuid,   "8EC90001-F315-4F60-9FB8-838830DAEA50");
-  bt_string_to_uuid (&data_uuid, "8EC90002-F315-4F60-9FB8-838830DAEA50");
-  bt_string_to_uuid (&cccd_uuid, "00002902-0000-1000-8000-00805f9b34fb");
+  bt_string_to_uuid (&fota_uuid,    "0000fe59-0000-1000-8000-00805f9b34fb");
+  bt_string_to_uuid (&cp_uuid,      "8EC90001-F315-4F60-9FB8-838830DAEA50");
+  bt_string_to_uuid (&data_uuid,    "8EC90002-F315-4F60-9FB8-838830DAEA50");
+  bt_string_to_uuid (&btnless_uuid, "8EC90003-F315-4F60-9FB8-838830DAEA50");
+  bt_string_to_uuid (&expbtnl_uuid, "8E400001-F315-4F60-9FB8-838830DAEA50");
+  bt_string_to_uuid (&cccd_uuid,    "00002902-0000-1000-8000-00805f9b34fb");
 
   mainloop_init ();
 }
 
 BLE *
-ble_open (const char *bdaddr)
+ble_open (const bdaddr_t *dst)
 {
   BLE *ble;
 
@@ -354,18 +361,12 @@ ble_open (const char *bdaddr)
   ble->notify_waiting_for_op = -1;
   ble->notify_code = -1;
   ble->extended_notify_code = -1;
+  ble->mtu = BT_ATT_DEFAULT_LE_MTU;
 
   ble->sec = BT_SECURITY_LOW;
   ble->dst_type = BDADDR_LE_RANDOM;
   bacpy (&ble->src_addr, BDADDR_ANY);
-
-  if (str2ba (bdaddr, &ble->dst_addr) < 0)
-    {
-      fprintf (stderr, "Invalid remote address: %s\n", bdaddr);
-      ble_close (ble);
-      return NULL;
-    }
-
+  bacpy (&ble->dst_addr, dst);
 
   ble->fd =
     l2cap_le_att_connect (&ble->src_addr, &ble->dst_addr, ble->dst_type,
@@ -383,6 +384,7 @@ ble_open (const char *bdaddr)
   if (!ble->att)
     {
       fprintf (stderr, "Failed to initialze ATT transport layer\n");
+      perror("bt_att_new");
       ble_close (ble);
       return NULL;
     }
@@ -403,7 +405,7 @@ ble_open (const char *bdaddr)
 
 
   ble->db = gatt_db_new ();
-  ble->gatt = bt_gatt_client_new (ble->db, ble->att, ble->mtu);
+  ble->gatt = bt_gatt_client_new (ble->db, ble->att, BT_ATT_MAX_LE_MTU);
 
 
   gatt_db_register (ble->db, service_added_cb, service_removed_cb,
@@ -417,10 +419,13 @@ ble_open (const char *bdaddr)
 
   bt_gatt_client_set_ready_handler (ble->gatt, ready_cb, ble, NULL);
 
-
   mainloopReturnCode = mainloop_run();
-  if (mainloopReturnCode == EXIT_SUCCESS)
+
+  if (mainloopReturnCode == EXIT_SUCCESS) {
+    ble->mtu = bt_gatt_client_get_mtu(ble->gatt);
     return ble;
+  }
+
   printf("mainloop_run call failed with code %d !\n", mainloopReturnCode);
 
   ble_close (ble);
@@ -455,6 +460,9 @@ notify_cb (uint16_t value_handle, const uint8_t * value,
   if ((value_handle == ble->cp_handle) && (length >= 3)
       && (value[0] == OP_CODE_RESPONSE_CODE)
       && (value[1] == ble->notify_waiting_for_op)) {
+    if (length > sizeof(ble->last_notification_package)) {
+      length= sizeof(ble->last_notification_package);
+    }
     memcpy(ble->last_notification_package, value, length);
     ble->last_notification_package_size = length;
     ble->notify_code = value[2];
