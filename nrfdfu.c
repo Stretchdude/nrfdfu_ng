@@ -5,7 +5,7 @@
 static void
 usage (char *name)
 {
-  fprintf (stderr, "Usage: %s -b bdaddr -p pkg_file\n", name);
+  fprintf (stderr, "Usage: %s -b bdaddr -p pkg_file\n [-c retry_count]", name);
   exit (EXIT_FAILURE);
 }
 
@@ -36,9 +36,9 @@ main (int argc, char *argv[])
   uint8_t *dat;
   size_t dat_size;
 
+  int retryCount = 0;
 
-
-  while ((opt = getopt (argc, argv, "b:p:")) != -1)
+  while ((opt = getopt (argc, argv, "b:p:c:")) != -1)
     {
       switch (opt)
         {
@@ -48,6 +48,10 @@ main (int argc, char *argv[])
         case 'p':
           pkg_fn = optarg;
           break;
+	case 'c':
+	  retryCount = atoi(optarg);
+	  if (retryCount < 0) { retryCount = 0; }
+	  break;
         default:               /* '?' */
           usage (argv[0]);
         }
@@ -75,7 +79,7 @@ main (int argc, char *argv[])
     
     printf ("%u bytes init_data, %u bytes SD+bootloader\n\n", (unsigned) dat_size, (unsigned) bin_size);
 
-    if (dfu(&dst, dat, dat_size, bin, bin_size) != BLE_DFU_RESP_VAL_SUCCESS){
+    if (dfu(&dst, dat, dat_size, bin, bin_size, retryCount) != BLE_DFU_RESP_VAL_SUCCESS){
       mainloop_finish ();
       return EXIT_FAILURE;  
     }
@@ -88,7 +92,7 @@ main (int argc, char *argv[])
     
     printf ("%u bytes init_data, %u bytes bootloader\n\n", (unsigned) dat_size, (unsigned) bin_size);
 
-    if (dfu(&dst, dat, dat_size, bin, bin_size) != BLE_DFU_RESP_VAL_SUCCESS){
+    if (dfu(&dst, dat, dat_size, bin, bin_size, retryCount) != BLE_DFU_RESP_VAL_SUCCESS){
       mainloop_finish();
       return EXIT_FAILURE;  
     }
@@ -102,7 +106,7 @@ main (int argc, char *argv[])
     
     printf ("%u bytes init_data, %u bytes firmware\n\n", (unsigned) dat_size, (unsigned) bin_size);
 
-    if (dfu(&dst, dat, dat_size, bin, bin_size) != BLE_DFU_RESP_VAL_SUCCESS){
+    if (dfu(&dst, dat, dat_size, bin, bin_size, retryCount) != BLE_DFU_RESP_VAL_SUCCESS){
       mainloop_finish ();
       return EXIT_FAILURE;  
     }

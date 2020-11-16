@@ -340,11 +340,11 @@ int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, Bl
 
 
 int dfu (bdaddr_t *dst, uint8_t * dat,
-     size_t dat_sz, uint8_t * bin, size_t bin_sz)
+	 size_t dat_sz, uint8_t * bin, size_t bin_sz, int retryCount)
 {
   BLE *ble;
-  uint8_t retries;
-  uint8_t maxRetries=3;
+  int8_t retries;
+  int8_t maxRetries=retryCount+1;
   uint8_t done = 0;
   char bdaddr[80];
   
@@ -401,7 +401,7 @@ int dfu (bdaddr_t *dst, uint8_t * dat,
 
 
 
-    if (retries<maxRetries && (!done)) {
+    if (retries<maxRetries-1 && (!done)) {
       printf("Operation failed, retrying in 3 seconds\n\n\n");
       sleep (3);
     }

@@ -32,4 +32,4 @@ enum {
   DFU_OP_ENTER_BOOTLOADER = 0x01
 };
 
-int dfu(bdaddr_t *dst, uint8_t *dat, size_t dat_sz, uint8_t *bin, size_t bin_sz);
+int dfu(bdaddr_t *dst, uint8_t *dat, size_t dat_sz, uint8_t *bin, size_t bin_sz, int retryCount);
