@@ -131,26 +131,33 @@ int dfuSendPackage(BLE * ble, uint8_t *packageData, size_t packageDataLength, Bl
 	  printf ("Resume was aborted\n");
 	}
 	else {
-	  printf("Data ok, resuming transmission\n");
-	  send = returnedOffset;
-	  //Request command execution to acknowledge the existing data
-	  ble_wait_setup(ble, OP_CODE_EXECUTE);
-	  buffer[0]         = OP_CODE_EXECUTE;
-	  ble_send_cp(ble, buffer, 1);
-	  returnCode = ble_wait_run(ble);
-	  if (returnCode != BLE_DFU_RESP_VAL_SUCCESS){
-	    dfuPrintHumanReadableError(ble);
-	    if (returnCode == BLE_DFU_RESP_VAL_OPPERATION_NOT_PERMITTED){
-	      printf("\n\n");
-	      printf("=================================================\n");
-	      printf("= To resolve this either power cycle the device =\n");
-	      printf("=         or allow the DFU to timeout           =\n");
-	      printf("=               and try again                   =\n");
-	      printf("=================================================\n");
-	      printf("\n\n");
+	  if (returnedOffset % blockSize == 0 || returnedOffset==packageDataLength){
+	    printf("Data ok, resuming transmission\n");
+	    send = returnedOffset;
+	    //Request command execution to acknowledge the existing data
+	    ble_wait_setup(ble, OP_CODE_EXECUTE);
+	    buffer[0]         = OP_CODE_EXECUTE;
+	    ble_send_cp(ble, buffer, 1);
+	    returnCode = ble_wait_run(ble);
+	    if (returnCode != BLE_DFU_RESP_VAL_SUCCESS){
+	      dfuPrintHumanReadableError(ble);
+	      if (returnCode == BLE_DFU_RESP_VAL_OPPERATION_NOT_PERMITTED){
+		printf("\n\n");
+		printf("=================================================\n");
+		printf("= To resolve this either power cycle the device =\n");
+		printf("=         or allow the DFU to timeout           =\n");
+		printf("=               and try again                   =\n");
+		printf("=================================================\n");
+		printf("\n\n");
+	      }
+	      dontResume = 1;
+	      return returnCode;
 	    }
+	  }
+	  else {
+	    printf("Resuming partial blocks are not currently supported\n");
 	    dontResume = 1;
-	    return returnCode;
+	    return BLE_DFU_RESP_VAL_OPPERATION_FAILED;
 	  }
 	}
       }
