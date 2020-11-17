@@ -409,8 +409,10 @@ int dfu (bdaddr_t *dst, uint8_t * dat,
 
   ble_close(ble);
   
-  if (retries == maxRetries){
-    printf("Too many retries, the operation failed!!!\n");
+  if (!done){
+    if (maxRetries != 1) {
+      printf("Too many retries, the operation failed!!!\n");
+    }
     return BLE_DFU_RESP_VAL_OPPERATION_FAILED;
   }
   else {
