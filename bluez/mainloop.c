@@ -41,6 +41,7 @@
 static int epoll_fd;
 static int epoll_terminate;
 static int exit_status;
+static int fatalError_;
 
 struct mainloop_data {
 	int fd;
@@ -81,6 +82,7 @@ void mainloop_init(void)
 		mainloop_list[i] = NULL;
 
 	epoll_terminate = 0;
+	fatalError_ = 0;
 }
 
 void mainloop_quit(void)
@@ -98,6 +100,7 @@ void mainloop_exit_failure(void)
 {
 	exit_status = EXIT_FAILURE;
 	epoll_terminate = 1;
+	fatalError_ = 1;
 }
 
 static void signal_callback(int fd, uint32_t events, void *user_data)
@@ -139,7 +142,7 @@ int mainloop_run(void)
 
 	exit_status = EXIT_SUCCESS;
 
-	while (!epoll_terminate) {
+	while ((!epoll_terminate) && (!fatalError_)) {
 		struct epoll_event events[MAX_EPOLL_EVENTS];
 		int n, nfds;
 
