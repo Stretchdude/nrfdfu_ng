@@ -28,7 +28,7 @@ main (int argc, char *argv[])
   bdaddr_t dst;
   struct zip *zip;
   char *m_str;
-  struct manifest *m;
+  struct manifest m;
 
   uint8_t *bin;
   size_t bin_size;
@@ -73,9 +73,9 @@ main (int argc, char *argv[])
 
   m = parse_manifest (m_str);
 
-  if (m->hasSDBootloader) {
-    dat_size = read_file_from_zip (zip, m->sdBootloaderDatFileName, &dat);
-    bin_size = read_file_from_zip (zip, m->sdBootloaderBinFileName, &bin);
+  if (m.hasSDBootloader) {
+    dat_size = read_file_from_zip (zip, m.sdBootloaderDatFileName, &dat);
+    bin_size = read_file_from_zip (zip, m.sdBootloaderBinFileName, &bin);
     
     printf ("%u bytes init_data, %u bytes SD+bootloader\n\n", (unsigned) dat_size, (unsigned) bin_size);
 
@@ -86,9 +86,9 @@ main (int argc, char *argv[])
     sleep(5);
   }
 
-  if (m->hasBootloader) {
-    dat_size = read_file_from_zip (zip, m->bootloaderDatFileName, &dat);
-    bin_size = read_file_from_zip (zip, m->bootloaderBinFileName, &bin);
+  if (m.hasBootloader) {
+    dat_size = read_file_from_zip (zip, m.bootloaderDatFileName, &dat);
+    bin_size = read_file_from_zip (zip, m.bootloaderBinFileName, &bin);
     
     printf ("%u bytes init_data, %u bytes bootloader\n\n", (unsigned) dat_size, (unsigned) bin_size);
 
@@ -100,9 +100,9 @@ main (int argc, char *argv[])
   }
 
 
-  if (m->hasApplication) {
-    dat_size = read_file_from_zip (zip, m->applicationDatFileName, &dat);
-    bin_size = read_file_from_zip (zip, m->applicationBinFileName, &bin);
+  if (m.hasApplication) {
+    dat_size = read_file_from_zip (zip, m.applicationDatFileName, &dat);
+    bin_size = read_file_from_zip (zip, m.applicationBinFileName, &bin);
     
     printf ("%u bytes init_data, %u bytes firmware\n\n", (unsigned) dat_size, (unsigned) bin_size);
 

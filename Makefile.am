@@ -79,7 +79,7 @@ nrfdfu_SOURCES = ${CSRCS} ${BLUEZ_SRCS}
 nrfdfu_LDADD = ${BLUEZ_LIBS} ${JSON_C_LIBS} ${LIBZIP_LIBS}
 
 nrfdfulib_SOURCES = example.c
-nrfdfulib_LDADD = .libs/libnrfdfu.la  ${BLUEZ_LIBS} ${JSON_C_LIBS} ${LIBZIP_LIBS}
+nrfdfulib_LDADD = .libs/libnrfdfu.so  ${BLUEZ_LIBS}  ${LIBZIP_LIBS}
 
 
 libnrfdfu_la_SOURCES =  ${CSRCS_LIB} ${BLUEZ_SRCS}

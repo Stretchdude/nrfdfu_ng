@@ -1,16 +1,15 @@
 #include "project.h"
 #include <string.h>
-
+#if 0
 json_object *
 _json_object_object_get (json_object * obj, const char *name)
 {
   json_object *sub;
   return json_object_object_get_ex (obj, name, &sub) ? sub : NULL;
 }
+#endif
 
-
-static void
-dump_manifest (struct manifest *m)
+static void dump_manifest (struct manifest *m)
 {
   printf ("Manifest:\n");
   if (m->hasSDBootloader){
@@ -35,59 +34,58 @@ dump_manifest (struct manifest *m)
 
 
 const char *DFU_VERSION="0";
-struct manifest *
-parse_manifest (const char *str)
+
+static void fake_parser(char *out,const char *haystack, const  char *first, const char *second) 
 {
-  json_object *json, *manifest;
-  enum json_tokener_error jerr = json_tokener_success;
-  struct manifest *m;
+        char *ptr = strstr(haystack, first);
+	if (NULL == ptr) {
+		return;
+	}
+        char *p = strstr(haystack, second);
+	if (NULL == p) {
+		return;
+	}
+        ptr = strstr(p, "\"");
+        ptr++;
+        p = strstr(ptr, "\"");
+        p++;
+        ptr = strstr(p, "\"");
+
+        char name[256] = {0};
+        int i = 0;
+        while(p < ptr) {
+                name[i] = *p++;
+                i++;
+		if (i >= sizeof(name)) {
+			break;
+		}
+        }   
+    
+        strcpy(out, name);
+}
 
 
-  m = xmalloc (sizeof (*m)); //notice: memory leak
-  memset (m, 0, sizeof (*m));
-
-  json = json_tokener_parse_verbose (str, &jerr);
-
-  manifest = _json_object_object_get (json, "manifest");
-
-
-  
-  json_object_object_foreach (manifest, key, val)
-  {
-    if (strcmp(key,"application")==0){
-      m->hasApplication = 1;
-      m->applicationBinFileName = json_object_get_string (_json_object_object_get (val, "bin_file"));
-      m->applicationDatFileName = json_object_get_string (_json_object_object_get (val, "dat_file"));
-    }
-    else if (strcmp(key,"softdevice_bootloader")==0){
-      m->hasSDBootloader = 1;
-      m->sdBootloaderBinFileName = json_object_get_string (_json_object_object_get (val, "bin_file"));
-      m->sdBootloaderDatFileName = json_object_get_string (_json_object_object_get (val, "dat_file"));
-    }
-    else if (strcmp(key,"bootloader")==0){
-      m->hasBootloader = 1;
-      m->bootloaderBinFileName = json_object_get_string (_json_object_object_get (val, "bin_file"));
-      m->bootloaderDatFileName = json_object_get_string (_json_object_object_get (val, "dat_file"));
-    }
-    else {
-      fprintf (stderr, "Unhandled manifest content '");
-      fprintf (stderr, "%s", key);
-      fprintf (stderr, "' this tool needs to be updated to support this\n");
-      exit (EXIT_FAILURE);
-    }
+static void parse_value(const char **oDat, const char **oBin, char *oHas, const char *haystack, const char *image)
+{
+  char name[64] = {0};
+  if(0 < (*oHas = (!!strstr(haystack, image)))) {
+    fake_parser(name, haystack, image, "dat_file" );
+    *oDat = strdup(name);
+    fake_parser(name, haystack, image, "bin_file");
+    *oBin = strdup(name);
   }
+}
 
 
-  dump_manifest (m);
+struct manifest parse_manifest (const char *str)
+{
+  struct manifest m = {0};
 
+  parse_value(&m.applicationDatFileName, &m.applicationBinFileName, &m.hasApplication, str, "application");
+  parse_value(&m.sdBootloaderDatFileName, &m.sdBootloaderBinFileName, &m.hasSDBootloader, str, "softdevice_bootloader");
+  parse_value(&m.bootloaderDatFileName, &m.bootloaderBinFileName, &m.hasBootloader, str, "bootloader");
 
-  if ((m->hasApplication  && ((!m->applicationDatFileName)  || (!m->applicationBinFileName)) ) ||
-      (m->hasSDBootloader && ((!m->sdBootloaderDatFileName) || (!m->sdBootloaderBinFileName))) ||
-      (m->hasBootloader   && ((!m->bootloaderDatFileName)   || (!m->bootloaderBinFileName))  )       
-      ) {
-    fprintf (stderr, "Failed to process manifest\n");
-    exit (EXIT_FAILURE);
-  }
+  dump_manifest(&m);
 
-  return m;
+  return m; 
 }

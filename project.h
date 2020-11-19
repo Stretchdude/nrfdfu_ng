@@ -8,7 +8,7 @@
 #include <string.h>
 
 #include <zip.h>
-#include <json.h>
+//#include <json.h>
 
 
 #include <bluetooth/bluetooth.h>
