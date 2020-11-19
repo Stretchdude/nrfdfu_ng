@@ -12,9 +12,12 @@ AUTOMAKE_OPTIONS = subdir-objects
 man1_MANS=nrfdfu.man
 bin_PROGRAMS = nrfdfu
 
+#lib_LTLIBRARIES = libnrfdfu-0.1.la
+#libnrfdfu_0_1_la_LDFLAGS = -version-info 0:0:0
 
-CSRCS= \
-	nrfdfu.c \
+lib_LTLIBRARIES = libnrfdfu.la
+
+CSRCS_BOTH= \
 	util.c \
 	zip.c \
 	ble.c \
@@ -22,6 +25,16 @@ CSRCS= \
 	dfu.c \
 	hexdump.c \
 	crc32.c
+
+CSRCS= \
+	nrfdfu.c \
+	${CSRCS_BOTH}
+
+
+CSRCS_LIB= \
+	libnrfdfu.c \
+	${CSRCS_BOTH}
+
 
 CHDRS= \
 	ble.h \
@@ -65,11 +78,23 @@ noinst_HEADERS= prototypes.h ${CHDRS} ${BLUEZ_HDRS}
 nrfdfu_SOURCES = ${CSRCS} ${BLUEZ_SRCS}
 nrfdfu_LDADD = ${BLUEZ_LIBS} ${JSON_C_LIBS} ${LIBZIP_LIBS}
 
+
+libnrfdfu_la_SOURCES =  ${CSRCS} ${BLUEZ_SRCS}
+#libnrfdfu_la_LDADD = ${BLUEZ_LIBS} ${JSON_C_LIBS} ${LIBZIP_LIBS}
+libnrfdfudir=.
+libnrfdfu_HEADERS= libnrfdfu.h
+
+#libnrfdfu_0_1_la_SOURCES =  ${CSRCS} ${BLUEZ_SRCS}
+##libnrfdfu_la_LDADD = ${BLUEZ_LIBS} ${JSON_C_LIBS} ${LIBZIP_LIBS}
+#libnrfdfu_0_1dir=.
+#libnrfdfu_0_1_HEADERS= libnrfdfu.h
+
 tidy: ${CSRCS} ${CHDRS}
 	indent -i2 -ts0 ${CSRCS} ${CHDRS}	
 	/bin/rm -f *~
 
 AM_CFLAGS=-g -Wall
+nrfdfu_CFLAGS = $(AM_CFLAGS)
 
 protos:
 	echo > prototypes.h
