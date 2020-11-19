@@ -10,7 +10,7 @@
 AUTOMAKE_OPTIONS = subdir-objects
 
 man1_MANS=nrfdfu.man
-bin_PROGRAMS = nrfdfu
+bin_PROGRAMS = nrfdfu nrfdfulib
 
 #lib_LTLIBRARIES = libnrfdfu-0.1.la
 #libnrfdfu_0_1_la_LDFLAGS = -version-info 0:0:0
@@ -72,11 +72,14 @@ BLUEZ_HDRS= \
 
 AM_CPPFLAGS = ${BLUEZ_CFLAGS} ${JSON_C_CFLAGS} ${LIBZIP_CFLAGS}
 
-noinst_HEADERS= prototypes.h ${CHDRS} ${BLUEZ_HDRS}
+noinst_HEADERS= prototypes.h ${CHDRS} ${BLUEZ_HDRS} libnrfdfu.h
 
 
 nrfdfu_SOURCES = ${CSRCS} ${BLUEZ_SRCS}
 nrfdfu_LDADD = ${BLUEZ_LIBS} ${JSON_C_LIBS} ${LIBZIP_LIBS}
+
+nrfdfulib_SOURCES = example.c
+nrfdfulib_LDADD = .libs/libnrfdfu.la  ${BLUEZ_LIBS} ${JSON_C_LIBS} ${LIBZIP_LIBS}
 
 
 libnrfdfu_la_SOURCES =  ${CSRCS_LIB} ${BLUEZ_SRCS}
@@ -95,6 +98,7 @@ tidy: ${CSRCS} ${CHDRS}
 
 AM_CFLAGS=-g -Wall
 nrfdfu_CFLAGS = $(AM_CFLAGS)
+nrfdfulib_CFLAGS = $(AM_CFLAGS)
 
 protos:
 	echo > prototypes.h

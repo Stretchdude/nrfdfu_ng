@@ -3,6 +3,7 @@ main
 core.*
 *~
 nrfdfu
+nrfdfulib
 .*.swp
 .deps
 INSTALL
@@ -21,3 +22,5 @@ depcomp
 install-sh
 missing
 stamp-h1
+
+**/*.lo
