@@ -1,3 +1,19 @@
+## I cloned this from error: https://gitlab.com/visti_how/nrfdfu_ng.git 
+Because I want to change some things and don't want to add another account for gitlab. I hope this is okay...
+
+## buid
+I need to call 
+1. automake --add-missing
+2. libtoolize
+3. autoreconf -f 
+4. ./configure
+5. make
+to build the tool (and my library. for which this fork is for)
+
+#########################################
+## Original README Message:
+#########################################
+
 ## nrfdfu_ng
 
 A Linux utility for performing Bluetooth DFU firmware upgrades for Nordic Semiconductor nRF52 and probably nRF51 using a regular BT interface. This i s rewrite of [http://git.panaceas.org/cgit.cgi/nRF51/nrfdfu/](http://git.panaceas.org/cgit.cgi/nRF51/nrfdfu/) to support newer SDKs.
