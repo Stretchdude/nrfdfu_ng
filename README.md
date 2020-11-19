@@ -5,7 +5,7 @@ https://gitlab.com/visti_how/nrfdfu_ng.git
 Because I needed changes I don't want to do it on Gitlab. Goal is to have a shared lib which can be called from any tool to execute DFU.
 
 
-##original README:
+## original README:
 
 A Linux utility for performing Bluetooth DFU firmware upgrades for Nordic Semiconductor nRF52 and probably nRF51 using a regular BT interface. This i s rewrite of [http://git.panaceas.org/cgit.cgi/nRF51/nrfdfu/](http://git.panaceas.org/cgit.cgi/nRF51/nrfdfu/) to support newer SDKs.
 
