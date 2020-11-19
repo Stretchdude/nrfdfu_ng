@@ -378,10 +378,11 @@ int dfu (bdaddr_t *dst, uint8_t * dat,
     dst->b[0]++;
     ba2str(dst, bdaddr);
     printf("\nReconnecting to DFU address %s\n", bdaddr);
+ble_init();
 
     ble = ble_open(dst);
   }
-  
+ 
 
   for (retries=0; retries<maxRetries && (!done); retries++){
 
