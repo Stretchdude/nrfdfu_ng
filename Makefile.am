@@ -79,7 +79,7 @@ nrfdfu_SOURCES = ${CSRCS} ${BLUEZ_SRCS}
 nrfdfu_LDADD = ${BLUEZ_LIBS} ${JSON_C_LIBS} ${LIBZIP_LIBS}
 
 
-libnrfdfu_la_SOURCES =  ${CSRCS} ${BLUEZ_SRCS}
+libnrfdfu_la_SOURCES =  ${CSRCS_LIB} ${BLUEZ_SRCS}
 #libnrfdfu_la_LDADD = ${BLUEZ_LIBS} ${JSON_C_LIBS} ${LIBZIP_LIBS}
 libnrfdfudir=.
 libnrfdfu_HEADERS= libnrfdfu.h
