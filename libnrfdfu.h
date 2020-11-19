@@ -3,7 +3,7 @@
 #define extern "C" {
 #endif
 
-int update(char *updatefilename, char *pkg_fn, int retryCount)
+int update(char *bdaddr, char *pkg_fn, int retryCount)
 
 
 

@@ -3,7 +3,7 @@
 #include "bluez/mainloop.h"
 
 
-int update(char *updatefilename, char *pkg_fn, int retryCount)
+int update(char *bdaddr, char *pkg_fn, int retryCount)
 {
   int opt;
   bdaddr_t dst;
