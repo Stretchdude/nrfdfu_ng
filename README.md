@@ -1,4 +1,4 @@
-## I cloned this from error: https://gitlab.com/visti_how/nrfdfu_ng.git 
+## I cloned this from: https://gitlab.com/visti_how/nrfdfu_ng.git 
 Because I want to change some things and don't want to add another account for gitlab. I hope this is okay...
 
 ## buid
